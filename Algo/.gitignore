@@ -1,0 +1,45 @@
+# Compiled object files
+*.o
+*.obj
+
+# Compiled dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled static libraries
+*.a
+*.lib
+
+# Executable files
+*.exe
+*.out
+*.app
+
+# Debug files
+*.dSYM/
+*.pdb
+*.idb
+
+# Other files
+*.log
+*.tmp
+*.temp
+
+# IDE specific files
+.idea/
+*.code-workspace
+
+# CMake generated files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# Other build system files
+build/
+Debug/
+Release/
+
+# Ignore all test_cases directories
+**/test_cases/

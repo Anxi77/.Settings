@@ -1,0 +1,32 @@
+// Place your key bindings in this file to override the defaults
+[
+  {
+    "key": "ctrl+k z",
+    "command": "extension.format"
+  },
+  {
+    "key": "ctrl+k ctrl+z",
+    "command": "workbench.action.toggleZenMode",
+    "when": "!isAuxiliaryWindowFocusedContext"
+  },
+  {
+    "key": "ctrl+k z",
+    "command": "-workbench.action.toggleZenMode",
+    "when": "!isAuxiliaryWindowFocusedContext"
+  },
+  {
+    "key": "ctrl+m ctrl+d",
+    "command": "markdown.showPreviewToSide",
+    "when": "!notebookEditorFocused && editorLangId == 'markdown'"
+  },
+  {
+    "key": "ctrl+k v",
+    "command": "-markdown.showPreviewToSide",
+    "when": "!notebookEditorFocused && editorLangId == 'markdown'"
+  },
+  {
+    "key": "ctrl+alt+b",
+    "command": "-C_Cpp_Runner.buildSingleFile",
+    "when": "C_Cpp_Runner:activatedExtension"
+  }
+]
