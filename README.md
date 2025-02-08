@@ -14,7 +14,7 @@
 
 알고리즘 문제 해결을 위한 환경 설정:
 
-- 📝 C++ 알고리즘 문제풀이용 설정정
+- 📝 C++ 알고리즘 문제풀이용 설정
 - 🔄 통합 테스트 케이스 관리
 - 🏗 CMake 빌드 시스템
 - 📥 자동 입출력 파일 처리
@@ -88,6 +88,8 @@ Unity 개발 환경 구성:
 [OpenGL](https://github.com/Anxi77/.Settings/tree/main/OpenGL) •
 [Unity](https://github.com/Anxi77/.Settings/tree/main/Unity) •
 [VSCode](https://github.com/Anxi77/.Settings/tree/main/VSCode) •
-[ReadmeTemplates](https://github.com/Anxi77/.Settings/tree/main/Readme)
+[ReadmeTemplates](https://github.com/Anxi77/.Settings/tree/main/Readme) •
+[BaekjoonLogging](https://github.com/Anxi77/.Settings/tree/main/Actions/BaekjoonLogging) •
+[DailyDevelopmentLogging](https://github.com/Anxi77/.Settings/tree/main/Actions/DailyDevelopmentLogging)
 
 </div>
