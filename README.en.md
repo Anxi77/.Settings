@@ -10,6 +10,15 @@ This repository contains various presets for development environment configurati
 
 ## 🎯 Development Environments
 
+### 🤖 GitHub Actions
+
+#### Daily Development Logging
+
+- 📅 Automatic daily dev log generation
+- 🌿 Branch-wise commit management
+- ✅ TODO item tracking
+- 🔄 Previous TODO migration
+
 ### 🧮 AlgorithmSolving
 
 Algorithm problem-solving environment setup with:
