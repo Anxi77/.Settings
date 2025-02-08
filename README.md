@@ -1,3 +1,3 @@
 # Settings
 
-### There are .vscode , MaekFile Presets in each folder
+### There are .vscode , MakeFile Presets in each folder
