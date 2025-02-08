@@ -1,103 +1,105 @@
-# OpenGL Development Environment
+# OpenGL 개발 세팅
 
-## 📋 Overview
+[English](README.en.md) | [한국어](README.md)
 
-This environment is configured for modern OpenGL development with GLFW and CMake integration.
+## 📋 개요
 
-## 🔧 Features
+이 세팅은 GLFW와 CMake를 사용하는 OpenGL 개발 환경입니다.
 
-### OpenGL Setup
+## 🔧 주요 기능
 
-- Modern OpenGL (4.5+) support
-- GLFW window management
-- Shader compilation utilities
-- Cross-platform compatibility
+### OpenGL 설정
 
-### Build System
+- OpenGL (4.5+) 지원
+- GLFW 윈도우 관리
+- 셰이더 컴파일 유틸리티
+- 크로스 플랫폼 호환성
 
-- CMake-based configuration
-- Automatic dependency management
-- Debug/Release configurations
-- Platform-specific optimizations
+### 빌드 시스템
 
-### Development Tools
+- CMake 기반 구성
+- 자동 의존성 관리
+- Debug/Release 구성
+- 플랫폼별 최적화
 
-- VS Code integration
-- Debugging support
-- Performance profiling
-- Memory tracking
+### 개발 도구
 
-## 📦 Directory Structure
+- VS Code 통합
+- 디버깅 지원
+- 성능 프로파일링
+- 메모리 추적
+
+## 📦 디렉토리 구조
 
 ```
 OpenGL/
-├── .vscode/                  # VS Code configuration
-│   ├── c_cpp_properties.json # C++ configuration
-│   ├── launch.json          # Debug configuration
-│   ├── settings.json        # Editor settings
-│   └── tasks.json           # Build tasks
-├── CMakeLists.txt           # CMake configuration
-├── include/                 # External dependencies
-│   └── GLFW/               # GLFW headers
-└── .gitignore              # Git ignore rules
+├── .vscode/                  # VS Code 설정
+│   ├── c_cpp_properties.json # C++ 설정
+│   ├── launch.json          # 디버그 설정
+│   ├── settings.json        # 에디터 설정
+│   └── tasks.json           # 빌드 작업
+├── CMakeLists.txt           # CMake 설정
+├── include/                 # 외부 의존성
+│   └── GLFW/               # GLFW 헤더
+└── .gitignore              # Git 제외 규칙
 ```
 
-## 🚀 Getting Started
+## 🚀 시작하기
 
-1. Prerequisites:
+1. 필수 요구사항:
 
-   - MinGW G++ Compiler
-   - CMake 3.10 or later
-   - GLFW library
-   - OpenGL drivers
+   - MinGW G++ 컴파일러
+   - CMake 3.10 이상
+   - GLFW 라이브러리
+   - OpenGL 드라이버
 
-2. Environment Setup:
+2. 환경 설정:
 
-   - Copy this directory to your project
-   - Install GLFW dependencies
-   - Open in VS Code
-   - CMake will configure automatically
+   - 이 디렉토리를 프로젝트에 복사
+   - GLFW 의존성 설치
+   - VS Code에서 열기
+   - CMake가 자동으로 구성됨
 
-3. Creating New Project:
-   - Modify CMakeLists.txt for your project
-   - Add source files
-   - Create shader files
-   - Build using Ctrl+Shift+B
+3. 새 프로젝트 생성:
+   - CMakeLists.txt를 프로젝트에 맞게 수정
+   - 소스 파일 추가
+   - 셰이더 파일 생성
+   - Ctrl+Shift+B로 빌드
 
-## ⚙️ Configuration
+## ⚙️ 설정
 
-### OpenGL Settings
+### OpenGL 설정
 
-- Core profile context
-- Debug context support
-- Extension loading
-- Viewport configuration
+- 코어 프로파일 컨텍스트
+- 디버그 컨텍스트 지원
+- 확장 기능 로딩
+- 뷰포트 구성
 
-### Build Options
+### 빌드 옵션
 
-- Platform-specific settings
-- Optimization levels
-- Debug symbols
-- Warning levels
+- 플랫폼별 설정
+- 최적화 레벨
+- 디버그 심볼
+- 경고 레벨
 
-## 🔍 Usage Tips
+## 🔍 사용 팁
 
-1. Context Creation:
+1. 컨텍스트 생성:
 
    ```cpp
-   // Initialize GLFW
+   // GLFW 초기화
    glfwInit();
    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
    ```
 
-2. Debug Features:
-   - OpenGL debug output
-   - GPU memory tracking
-   - Performance counters
-   - Frame analysis
+2. 디버그 기능:
+   - OpenGL 디버그 출력
+   - GPU 메모리 추적
+   - 성능 카운터
+   - 프레임 분석
 
-## 🤝 Contributing
+## 🤝 기여하기
 
-Feel free to suggest improvements or report issues.
+개선사항 제안이나 버그 리포트를 환영합니다.

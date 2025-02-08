@@ -1,72 +1,74 @@
-# Daily Development Log Action Guide
+# Daily Development Log 액션 사용 설명서
 
-## 📌 Overview
+[English](README.en.md) | [한국어](README.md)
 
-This GitHub Action automatically generates and manages daily development logs based on commit messages. It helps systematically manage work history and TODO items by branch.
+## 📌 개요
 
-## 🔧 Key Features
+이 GitHub 액션은 커밋 메시지를 기반으로 일일 개발 로그를 자동으로 생성하고 관리합니다. 브랜치별 작업 내역과 TODO 항목을 체계적으로 관리할 수 있습니다.
 
-1. **Automatic Daily Development Log Generation**
+## 🔧 주요 기능
 
-   - Auto-creates development log issues for the current date
-   - Organizes commit history by branch
-   - Manages TODO items
+1. **일일 개발 로그 자동 생성**
 
-2. **Branch Management**
+   - 당일 날짜의 개발 로그 이슈 자동 생성
+   - 브랜치별 커밋 내역 정리
+   - TODO 항목 관리
 
-   - Accumulates commit history by branch
-   - Displays commit details (time, author, type)
-   - Links related issues
+2. **브랜치 관리**
 
-3. **TODO Management**
-   - Manages TODO items in checkbox format
-   - Automatically transfers incomplete TODOs from previous dates
-   - Preserves TODO status (complete/incomplete)
-   - Handles duplicate TODOs
+   - 브랜치별 커밋 히스토리 누적
+   - 커밋 상세 정보 (시간, 작성자, 타입) 표시
+   - 관련 이슈 연결
 
-## 💫 Commit Message Format
+3. **TODO 관리**
+   - 체크박스 형식의 TODO 항목 관리
+   - 이전 날짜의 미완료 TODO 자동 이전
+   - TODO 상태 (완료/미완료) 보존
+   - 중복 TODO 처리
 
-Commit messages should follow this format:
+## 💫 커밋 메시지 작성 방법
+
+커밋 메시지는 다음 형식을 따라야 합니다:
 
 ```
-[type] title
+[type] 제목
 
 [Body]
-Write detailed content here.
-Multiple lines are supported.
+상세 내용을 작성합니다.
+여러 줄로 작성 가능합니다.
 
 [Todo]
-- New TODO item 1
-- New TODO item 2
+- 새로운 TODO 항목 1
+- 새로운 TODO 항목 2
 
 [Footer]
-#related-issue #tags
+#관련-이슈 #태그
 ```
 
-### Commit Types
+### 커밋 타입 종류
 
-- `feat`: ✨ New feature
-- `fix`: 🐛 Bug fix
-- `refactor`: ♻️ Code refactoring
-- `docs`: 📝 Documentation update
-- `test`: ✅ Test code
-- `chore`: 🔧 Build/config changes
-- `style`: 💄 Code style changes
-- `perf`: ⚡️ Performance improvements
+- `feat`: ✨ 새로운 기능
+- `fix`: 🐛 버그 수정
+- `refactor`: ♻️ 코드 리팩토링
+- `docs`: 📝 문서 수정
+- `test`: ✅ 테스트 코드
+- `chore`: 🔧 빌드/설정 변경
+- `style`: 💄 코드 스타일 변경
+- `perf`: ⚡️ 성능 개선
 
-## ⚙️ Configuration
+## ⚙️ 환경 설정
 
-You can modify the following settings in `.github/workflows/create-issue-from-commit.yml`:
+`.github/workflows/create-issue-from-commit.yml` 파일에서 다음 설정을 변경할 수 있습니다:
 
 ```yaml
 env:
-  TIMEZONE: "Asia/Seoul" # Timezone setting
-  ISSUE_PREFIX: "📅" # Issue title prefix
-  ISSUE_LABEL: "daily-log" # Default label
-  EXCLUDED_COMMITS: "^(chore|docs|style):" # Commit types to exclude
+  TIMEZONE: "Asia/Seoul" # 타임존 설정
+  ISSUE_PREFIX: "📅" # 이슈 제목 접두사
+  ISSUE_LABEL: "daily-log" # 기본 라벨
+  EXCLUDED_COMMITS: "^(chore|docs|style):" # 제외할 커밋 타입
 ```
 
-## 📋 Auto-generated Issue Format
+## 📋 자동 생성되는 이슈 형식
 
 ```markdown
 # 📅 Daily Development Log (YYYY-MM-DD) - Repository Name
@@ -79,7 +81,7 @@ env:
 
 <details>
 <summary><h3>✨ Branch Name</h3></summary>
-Detailed commit content
+커밋 상세 내용
 </details>
 
 <div align="center">
@@ -88,23 +90,23 @@ Detailed commit content
 
 </div>
 
-- [ ] TODO item 1
-- [x] TODO item 2 (completed)
+- [ ] TODO 항목 1
+- [x] TODO 항목 2 (완료됨)
 ```
 
-## 🔍 Debug Output
+## 🔍 디버그 출력
 
-The action outputs the following information during execution:
+액션 실행 시 다음과 같은 정보가 출력됩니다:
 
-1. Current issue's TODO list
-2. TODO item statistics
-3. Newly added TODO list
-4. TODOs transferred from previous dates
-5. Final results
+1. 현재 이슈의 TODO 목록
+2. TODO 항목 통계
+3. 새로 추가되는 TODO 목록
+4. 이전 날짜에서 이전된 TODO 목록
+5. 최종 결과
 
-## ⚠️ Important Notes
+## ⚠️ 주의사항
 
-1. Please strictly follow the commit message format
-2. TODO items must start with `-` or `*`
-3. Previous date's issues are automatically closed
-4. Commits of type `chore`, `docs`, and `style` are excluded by default
+1. 커밋 메시지 형식을 정확히 지켜주세요.
+2. TODO 항목은 `-` 또는 `*`로 시작해야 합니다.
+3. 이전 날짜의 이슈는 자동으로 닫힙니다.
+4. `chore`, `docs`, `style` 타입의 커밋은 기본적으로 제외됩니다.

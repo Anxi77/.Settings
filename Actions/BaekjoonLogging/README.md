@@ -1,91 +1,93 @@
-# Baekjoon Problem Logging System
+# 백준 문제 로깅 시스템
 
-## 📋 Overview
+[English](README.en.md) | [한국어](README.md)
 
-This system automatically generates and updates a README with solved Baekjoon Online Judge (BOJ) problems, categorizing them by algorithms and difficulty levels.
+## 📋 개요
 
-## 🔧 Features
+이 시스템은 백준 온라인 저지(BOJ) 문제 풀이를 자동으로 추적하고, 알고리즘 유형과 난이도별로 분류하여 README를 생성합니다.
 
-### Problem Tracking
+## 🔧 주요 기능
 
-- Automatically detects solved problems
-- Categorizes by algorithm types
-- Tracks difficulty levels
-- Maintains problem statistics
+### 문제 추적
 
-### API Integration
+- 해결한 문제 자동 감지
+- 알고리즘 유형별 분류
+- 난이도 레벨 추적
+- 문제 통계 관리
 
-- Integrates with solved.ac API
-- Fetches problem metadata
-- Retrieves difficulty ratings
-- Gets problem tags and categories
+### API 연동
+
+- solved.ac API 연동
+- 문제 메타데이터 수집
+- 난이도 정보 조회
+- 문제 태그 및 분류 정보 획득
 
 ### GitHub Actions
 
-- Automatic README updates
-- Triggers on solution commits
-- Maintains difficulty statistics
-- Generates problem indexes
+- README 자동 업데이트
+- 솔루션 커밋 시 자동 실행
+- 난이도 통계 관리
+- 문제 인덱스 생성
 
-## 📦 Directory Structure
+## 📦 디렉토리 구조
 
 ```
 BaekjoonLogging/
-├── Algo_Readme_Action.py     # Main script
-├── update-readme.yml         # GitHub Actions workflow
-└── README.md                # Documentation
+├── Algo_Readme_Action.py     # 메인 스크립트
+├── update-readme.yml         # GitHub Actions 워크플로우
+└── README.md                # 문서
 ```
 
-## ⚙️ Configuration
+## ⚙️ 설정
 
-### GitHub Actions Setup
+### GitHub Actions 설정
 
 ```yaml
 name: Update README
 on:
   push:
     paths:
-      - "Solutions/**" # Triggers on solution updates
-      - ".github/scripts/**" # Triggers on script updates
+      - "Solutions/**" # 솔루션 업데이트 시 실행
+      - ".github/scripts/**" # 스크립트 업데이트 시 실행
 ```
 
-### Script Configuration
+### 스크립트 설정
 
-- Problem difficulty emojis
-- Category organization
-- File path patterns
-- API request settings
+- 문제 난이도 이모지
+- 카테고리 구성
+- 파일 경로 패턴
+- API 요청 설정
 
-## 🔍 Generated Content
+## 🔍 생성되는 내용
 
-1. Difficulty Statistics:
+1. 난이도 통계:
 
-   - Bronze to Ruby levels
-   - Total problem count
-   - Category-wise breakdown
+   - 브론즈부터 루비까지
+   - 전체 문제 수
+   - 카테고리별 분석
 
-2. Problem Categories:
-   - Algorithm type grouping
-   - Difficulty indicators
-   - Links to solutions
-   - Implementation tests
+2. 문제 분류:
+   - 알고리즘 유형별 그룹화
+   - 난이도 표시
+   - 솔루션 링크
+   - 구현 테스트
 
-## 🚀 Usage
+## 🚀 사용법
 
-1. Solution Structure:
+1. 솔루션 구조:
 
    ```
    Solutions/
    └── Baekjoon/
-       └── [Problem Number]/
-           └── [Problem Number].cpp
+       └── [문제 번호]/
+           └── [문제 번호].cpp
    ```
 
-2. Automatic Updates:
-   - Commit solutions to the repository
-   - GitHub Actions automatically runs
-   - README updates with new problems
+2. 자동 업데이트:
+   - 저장소에 솔루션 커밋
+   - GitHub Actions 자동 실행
+   - 새로운 문제로 README 업데이트
 
-## 🤝 Contributing
+## 🤝 기여하기
 
-Feel free to suggest improvements or report issues.
+개선사항 제안이나 문제 보고를 환영합니다.
