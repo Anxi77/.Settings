@@ -1,13 +1,14 @@
 <div align="center">
 
-![header](https://capsule-render.vercel.app/api?type=transparent&color=39FF14&height=150&section=header&text=ReadmeTemplate&fontSize=50&animation=fadeIn&fontColor=39FF14&desc=Description&descSize=25&descAlignY=75)
+![header](https://capsule-render.vercel.app/api?type=transparent&color=39FF14&height=150&section=header&text=Project%20Name&fontSize=50&animation=fadeIn&fontColor=39FF14&desc=Project%20Description&descSize=25&descAlignY=75)
 
-# 프로젝트명
+# [프로젝트명]
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Unity-000000?style=for-the-badge&logo=unity&logoColor=white"/>
-  <img src="https://img.shields.io/badge/Team_Project-FF4154?style=for-the-badge&logo=git&logoColor=white"/>
-  <img src="https://img.shields.io/badge/Game_Development-4B32C3?style=for-the-badge&logo=gamemaker&logoColor=white"/>
+  <!-- 프로젝트에 맞는 뱃지로 교체하세요 -->
+  <img src="https://img.shields.io/badge/Project_Type-FF4154?style=for-the-badge&logo=git&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Development-4B32C3?style=for-the-badge&logo=dev.to&logoColor=white"/>
+  <!-- 더 많은 뱃지는 https://shields.io/ 에서 생성할 수 있습니다 -->
 </p>
 
 ## 📋 프로젝트 개요
@@ -18,17 +19,21 @@
 
 ━━━━━━━━━━━━━━━━━━━━━━
 
-### 🎮 게임 장르
+### 🎯 프로젝트 분류
 
-#### • 멀티 소셜 게임
+#### • [프로젝트 유형 작성]
 
 ━━━━━━━━━━━━━━━━━━━━━━
 
 ### 👥 개발 인원
 
-#### • 프로그래머
+#### • [역할군1]
 
-#### • 기획자
+- [이름/담당파트]
+
+#### • [역할군2]
+
+- [이름/담당파트]
 
 ━━━━━━━━━━━━━━━━━━━━━━
 
@@ -48,7 +53,7 @@
 ## 📚 Rules & Guidelines
 
 <details>
-<summary><h1>📁 에셋 관리 규칙</h1></summary>
+<summary><h1>📁 리소스 관리 규칙</h1></summary>
 <div align="center">
 
 ### ⚙️ 에셋 관리 규칙
@@ -125,6 +130,7 @@ External 폴더에 임포트 후 압축하여 드라이브 업로드
 
 </div>
 </details>
+
 <details>
 <summary><h1>💻 코드 컨벤션</h1></summary>
 <div align="center">
@@ -185,13 +191,7 @@ External 폴더에 임포트 후 압축하여 드라이브 업로드
 
 #### • 기본 구조
 
-[Type]
-
-커밋 유형
-<br></br>
-[Subject]
-
-커밋 제목
+[커밋 유형] 커밋 제목
 <br></br>
 [Body]
 
@@ -227,7 +227,7 @@ External 폴더에 임포트 후 압축하여 드라이브 업로드
 | style            | 코드 포맷팅, 세미콜론 누락, 코드 변경이 없는 경우 |
 | refactor         | 코드 리팩토링                                     |
 | test             | 테스트 코드 추가                                  |
-| chore            | 빌드 업무 수정, 패키지 매니저 수정 (잡일)         |
+| chore            | 빌드 업무 수정, 패키지 매니저 수정                |
 | design           | UI/UX 디자인 변경                                 |
 | comment          | 필요한 주석 추가 및 변경                          |
 | rename           | 파일 혹은 폴더명을 수정하거나 옮기는 작업         |

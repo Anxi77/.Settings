@@ -1,4 +1,10 @@
+<div align="center">
+
 # 🛠 Development Settings
+
+[English](README.md) | [한국어](README.ko.md)
+
+</div>
 
 This repository contains various presets for development environment configurations.
 
@@ -8,7 +14,7 @@ This repository contains various presets for development environment configurati
 
 Algorithm problem-solving environment setup with:
 
-- 📝 C++ configuration for competitive programming
+- 📝 C++ configuration for algorithm solving
 - 🔄 Integrated test case management
 - 🏗 CMake build system
 - 📥 Automatic input/output file handling
@@ -54,6 +60,16 @@ General VS Code settings including:
 - 🔄 Git integration settings
 - 🧩 Extension configurations
 
+### 📋 Readme Templates
+
+Project documentation templates:
+
+- 📑 Repository README template
+- 👥 Team project README template
+- 📊 Project structure documentation
+- 💡 Development guidelines
+- 🔍 Commit convention guides
+
 ## 📖 Usage
 
 Each folder contains specific configurations for its respective tool or environment. Simply copy the needed settings to your project to use them.
@@ -68,10 +84,11 @@ Pull requests are welcome if you'd like to suggest new configurations or improve
 
 ### 🔍 Quick Links
 
-[AlgorithmSolving](#-algorithmsolving) •
-[DirectX](#-directx) •
-[OpenGL](#-opengl) •
-[Unity](#-unity) •
-[VSCode](#-vscode)
+[AlgorithmSolving](https://github.com/Anxi77/.Settings/tree/main/AlgorithmSolving) •
+[DirectX](https://github.com/Anxi77/.Settings/tree/main/DirectX) •
+[OpenGL](https://github.com/Anxi77/.Settings/tree/main/OpenGL) •
+[Unity](https://github.com/Anxi77/.Settings/tree/main/Unity) •
+[VSCode](https://github.com/Anxi77/.Settings/tree/main/VSCode) •
+[ReadmeTemplates](https://github.com/Anxi77/.Settings/tree/main/Readme)
 
 </div>
