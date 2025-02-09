@@ -12,7 +12,7 @@
 
 ### 🤖 GitHub Actions
 
-#### [백준 문제 로깅]https://github.com/Anxi77/.Settings/tree/main/Actions/BaekjoonLogging)
+#### [백준 문제 로깅](https://github.com/Anxi77/.Settings/tree/main/Actions/BaekjoonLogging)
 
 - 📊 solved.ac API 연동
 - 🏷 알고리즘 유형별 분류
