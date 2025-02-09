@@ -48,7 +48,7 @@ DirectX 개발 환경 구성:
 
 ### 🎨 [OpenGL](https://github.com/Anxi77/.Settings/tree/main/OpenGL)
 
-OpenGL 개발 환경 특징:
+OpenGL 개발 환경 구성:
 
 - 🪟 GLFW 통합
 - ⚙️ MinGW 컴파일러 설정
