@@ -12,21 +12,21 @@
 
 ### 🤖 GitHub Actions
 
-#### 백준 문제 로깅
+#### [백준 문제 로깅]https://github.com/Anxi77/.Settings/tree/main/Actions/BaekjoonLogging)
 
 - 📊 solved.ac API 연동
 - 🏷 알고리즘 유형별 분류
 - 📈 난이도 통계 관리
 - 🔄 자동 README 업데이트
 
-#### 일일 개발 로깅
+#### [일일 개발 로깅](https://github.com/Anxi77/.Settings/tree/main/Actions/DailyDevelopmentLogging)
 
 - 📅 일일 개발 로그 자동 생성
 - 🌿 브랜치별 커밋 관리
 - ✅ TODO 항목 추적
 - 이전 TODO 자동 이전
 
-### 🧮 알고리즘 문제풀이
+### 🧮 [알고리즘 문제풀이](https://github.com/Anxi77/.Settings/tree/main/AlgorithmSolving)
 
 알고리즘 문제 해결을 위한 환경 설정:
 
@@ -36,7 +36,7 @@
 - 📥 자동 입출력 파일 처리
 - 📚 미리 구성된 bits/stdc++.h 헤더
 
-### 🎮 DirectX
+### 🎮 [DirectX](https://github.com/Anxi77/.Settings/tree/main/DirectX)
 
 DirectX 개발 환경 구성:
 
@@ -46,7 +46,7 @@ DirectX 개발 환경 구성:
 - 🐛 디버깅 도구 구성
 - 📄 UTF-8 인코딩 지원
 
-### 🎨 OpenGL
+### 🎨 [OpenGL](https://github.com/Anxi77/.Settings/tree/main/OpenGL)
 
 OpenGL 개발 환경 특징:
 
@@ -56,7 +56,7 @@ OpenGL 개발 환경 특징:
 - 🔄 디버그 및 릴리스 구성
 - 💻 크로스 플랫폼 지원
 
-### 🎲 Unity
+### 🎲 [Unity](https://github.com/Anxi77/.Settings/tree/main/Unity) 
 
 Unity 개발 환경 구성:
 
@@ -66,7 +66,7 @@ Unity 개발 환경 구성:
 - 📦 에셋 관리 설정
 - 🔧 커스텀 에디터 구성
 
-### 💻 VSCode
+### 💻 [VSCode](https://github.com/Anxi77/.Settings/tree/main/VSCode)
 
 일반 VSCode 설정 포함:
 
@@ -76,7 +76,7 @@ Unity 개발 환경 구성:
 - 🔄 Git 통합 설정
 - 🧩 확장 프로그램 구성
 
-### 📋 리드미 템플릿
+### 📋 [리드미 템플릿](https://github.com/Anxi77/.Settings/tree/main/Readme)
 
 프로젝트 문서화 템플릿:
 
