@@ -12,14 +12,14 @@ This repository contains various presets for development environment configurati
 
 ### 🤖 GitHub Actions
 
-#### Daily Development Logging
+#### [Daily Development Logging](https://github.com/Anxi77/.Settings/tree/main/Actions/DailyDevelopmentLogging)
 
 - 📅 Automatic daily dev log generation
 - 🌿 Branch-wise commit management
 - ✅ TODO item tracking
 - 🔄 Previous TODO migration
 
-### 🧮 AlgorithmSolving
+### 🧮 [AlgorithmSolving](https://github.com/Anxi77/.Settings/tree/main/AlgorithmSolving)
 
 Algorithm problem-solving environment setup with:
 
@@ -29,7 +29,7 @@ Algorithm problem-solving environment setup with:
 - 📥 Automatic input/output file handling
 - 📚 Pre-configured bits/stdc++.h header
 
-### 🎮 DirectX
+### 🎮 [DirectX](https://github.com/Anxi77/.Settings/tree/main/DirectX) 
 
 DirectX development environment with:
 
@@ -39,7 +39,7 @@ DirectX development environment with:
 - 🐛 Debugging tools configuration
 - 📄 UTF-8 encoding support
 
-### 🎨 OpenGL
+### 🎨 [OpenGL](https://github.com/Anxi77/.Settings/tree/main/OpenGL)
 
 OpenGL development environment featuring:
 
@@ -49,7 +49,7 @@ OpenGL development environment featuring:
 - 🔄 Debug and release configurations
 - 💻 Cross-platform support
 
-### 🎲 Unity
+### 🎲 [Unity](https://github.com/Anxi77/.Settings/tree/main/Unity)
 
 Unity development environment with:
 
@@ -59,7 +59,7 @@ Unity development environment with:
 - 📦 Asset management settings
 - 🔧 Custom editor configurations
 
-### 💻 VSCode
+### 💻 [VSCode](https://github.com/Anxi77/.Settings/tree/main/VSCode)
 
 General VS Code settings including:
 
@@ -69,7 +69,7 @@ General VS Code settings including:
 - 🔄 Git integration settings
 - 🧩 Extension configurations
 
-### 📋 Readme Templates
+### 📋 [Readme Templates](https://github.com/Anxi77/.Settings/tree/main/Readme)
 
 Project documentation templates:
 
