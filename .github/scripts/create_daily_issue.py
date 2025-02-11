@@ -239,32 +239,40 @@ def create_todo_section(todos):
     # process categorized todos
     categorized = {}
     current_category = 'General'
+    category_case_map = {}  # 카테고리 대소문자 원본 보존
     
     for checked, todo_text in todos:
         print(f"Processing todo: {todo_text}")
         
-        # check if the todo is a category header
         if todo_text.startswith('@'):
-            current_category = todo_text[1:].strip()
+            category = todo_text[1:].strip()
+            category_lower = category.lower()
+            if category_lower not in category_case_map:
+                category_case_map[category_lower] = category
+            current_category = category_case_map[category_lower]
             print(f"Found category: {current_category}")
             continue
             
-        if current_category not in categorized:
-            categorized[current_category] = []
-        categorized[current_category].append((checked, todo_text))
+        if current_category.lower() not in categorized:
+            categorized[current_category.lower()] = {
+                'name': current_category,
+                'todos': []
+            }
+        categorized[current_category.lower()]['todos'].append((checked, todo_text))
         print(f"Added to category '{current_category}': {todo_text}")
     
     # process categorized todos
     sections = []
-    for category, category_todos in categorized.items():
-        if not category_todos:  # skip empty categories
+    for category_lower, data in categorized.items():
+        if not data['todos']:  # skip empty categories
             continue
             
+        category = data['name']
         print(f"\nProcessing category: {category}")
-        print(f"Items in category: {len(category_todos)}")
+        print(f"Items in category: {len(data['todos'])}")
         
         todo_lines = []
-        for checked, text in category_todos:
+        for checked, text in data['todos']:
             checkbox = '[x]' if checked else '[ ]'
             todo_lines.append(f'- {checkbox} {text}')
             print(f"Added todo line: {text}")
