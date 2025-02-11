@@ -46,11 +46,14 @@ def parse_commit_message(message):
 
 class CategoryManager:
     def __init__(self):
-        self._categories = {}  # lowercase -> original case mapping
+        self._categories = {'general': 'General'}  # lowercase -> original case mapping
         self._current = 'General'
     
     def add_category(self, category):
         """Add a new category or get existing one"""
+        if not category:
+            return self._categories['general']
+            
         category = category.strip()
         category_lower = category.lower()
         
@@ -61,12 +64,18 @@ class CategoryManager:
     
     def get_category(self, category):
         """Get original case of category"""
+        if not category:
+            return self._categories['general']
+            
         category_lower = category.lower()
         return self._categories.get(category_lower, category)
     
     def set_current(self, category):
         """Set current category"""
-        self._current = self.add_category(category)
+        if not category:
+            self._current = self._categories['general']
+        else:
+            self._current = self.add_category(category)
     
     @property
     def current(self):
@@ -266,6 +275,7 @@ def create_todo_section(todos):
     # process categorized todos
     categorized = {}
     category_manager = CategoryManager()
+    general_todos = []
     
     for checked, todo_text in todos:
         print(f"Processing todo: {todo_text}")
@@ -279,6 +289,13 @@ def create_todo_section(todos):
             
         category = category_manager.current
         category_lower = category.lower()
+        
+        # Collect General todos separately
+        if category == 'General':
+            general_todos.append((checked, todo_text))
+            print(f"Added to General category: {todo_text}")
+            continue
+            
         if category_lower not in categorized:
             categorized[category_lower] = {
                 'name': category,
@@ -289,6 +306,19 @@ def create_todo_section(todos):
     
     # process categorized todos
     sections = []
+    
+    # Add General category first if it has items
+    if general_todos:
+        section = f'''<details>
+<summary>📑 General</summary>
+
+{'\n'.join(f"- {'[x]' if checked else '[ ]'} {text}" for checked, text in general_todos)}
+</details>'''
+        sections.append(section)
+        print(f"\nProcessing category: General")
+        print(f"Items in category: {len(general_todos)}")
+    
+    # Process other categories
     for category_lower, data in categorized.items():
         if not data['todos']:  # skip empty categories
             continue
@@ -303,18 +333,13 @@ def create_todo_section(todos):
             todo_lines.append(f'- {checkbox} {text}')
             print(f"Added todo line: {text}")
         
-        if category == 'General':
-            # General category is displayed directly
-            sections.append('\n'.join(todo_lines))
-        else:
-            # other categories are wrapped in details
-            section = f'''<details>
+        section = f'''<details>
 <summary>📑 {category}</summary>
 
 {'\n'.join(todo_lines)}
 </details>'''
-            sections.append(section)
-            print(f"Created details section for {category}")
+        sections.append(section)
+        print(f"Created details section for {category}")
     
     # Add extra newline between sections for better readability
     result = '\n\n'.join(sections)
