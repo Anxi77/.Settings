@@ -369,16 +369,21 @@ def convert_to_checkbox_list(text):
     categories = parse_categorized_todos(text)
     lines = []
     
-    # process categories in order, preserving original case
+    # Process General category first if exists
+    if 'General' in categories:
+        lines.extend(f'- {todo}' for todo in categories['General'])
+    
+    # Process other categories in order, preserving original case
     for category, todos in categories.items():
-        if category != 'General':
-            # Preserve the original category case from the commit message
-            original_case = next(line[1:].strip() for line in text.split('\n') 
-                              if line.strip().startswith('@') 
-                              and line[1:].strip().lower() == category.lower())
-            lines.append(f'@{original_case}')  # add category marker with original case
-        for todo in todos:
-            lines.append(f'- {todo}')
+        if category == 'General':
+            continue
+            
+        # Preserve the original category case from the commit message
+        original_case = next((line[1:].strip() for line in text.split('\n') 
+                          if line.strip().startswith('@') 
+                          and line[1:].strip().lower() == category.lower()), category)
+        lines.append(f'@{original_case}')  # add category marker with original case
+        lines.extend(f'- {todo}' for todo in todos)
     
     result = '\n'.join(lines)
     print(f"\nConverted result:\n{result}")
