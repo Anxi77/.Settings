@@ -386,6 +386,18 @@ def convert_to_checkbox_list(text):
         lines.append(f'@{original_case}')  # add category marker with original case
         lines.extend(f'- {todo}' for todo in todos)
     
+    # If there are uncategorized items and no General category exists yet
+    uncategorized = [line.strip()[2:] for line in text.split('\n') 
+                    if line.strip().startswith(('-', '*')) 
+                    and not any(line.strip() in todos for todos in categories.values())]
+    
+    if uncategorized and 'General' not in categories:
+        if not lines:  # If no categories exist yet
+            lines.append('@General')
+        elif not lines[0].startswith('@General'):  # If General should be first
+            lines.insert(0, '@General')
+        lines.extend(f'- {todo}' for todo in uncategorized)
+    
     result = '\n'.join(lines)
     print(f"\nConverted result:\n{result}")
     return result
