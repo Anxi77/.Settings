@@ -93,6 +93,7 @@ def parse_categorized_todos(text):
     
     categories = {}
     category_manager = CategoryManager()
+    has_uncategorized_items = False
     
     for line in text.strip().split('\n'):
         line = line.strip()
@@ -116,6 +117,14 @@ def parse_categorized_todos(text):
             item = line[1:].strip()
             categories[category].append(item)
             print(f"Added todo item to {category}: {item}")
+            
+            # Mark if we have items without explicit category
+            if category == 'General':
+                has_uncategorized_items = True
+    
+    # Ensure General category exists if we have uncategorized items
+    if has_uncategorized_items and 'General' not in categories:
+        categories['General'] = []
     
     print("\nParsed categories:")
     for category, items in categories.items():
