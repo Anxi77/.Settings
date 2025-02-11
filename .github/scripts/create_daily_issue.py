@@ -47,7 +47,11 @@ def parse_commit_message(message):
 def parse_categorized_todos(text):
     """Parse todos with categories"""
     if not text:
+        print("DEBUG: No todo text provided")
         return {}
+    
+    print("\n=== Parsing TODOs ===")
+    print(f"Raw todo text:\n{text}")
     
     categories = {}
     current_category = 'General'  # 기본 카테고리
@@ -57,16 +61,27 @@ def parse_categorized_todos(text):
         if not line:
             continue
             
+        print(f"Processing line: {line}")
+        
         # 카테고리 헤더 체크 (예: @Category 또는 @Category:설명)
         if line.startswith('@'):
             current_category = line[1:].split(':')[0].strip()
+            print(f"Found category: {current_category}")
             continue
             
         # todo 항목 처리
         if line.startswith(('-', '*')):
             if current_category not in categories:
                 categories[current_category] = []
-            categories[current_category].append(line[1:].strip())
+            item = line[1:].strip()
+            categories[current_category].append(item)
+            print(f"Added todo item to {current_category}: {item}")
+    
+    print("\nParsed categories:")
+    for category, items in categories.items():
+        print(f"{category}: {len(items)} items")
+        for item in items:
+            print(f"  - {item}")
     
     return categories
 
@@ -206,7 +221,11 @@ def create_todo_section(todos):
 def convert_to_checkbox_list(text):
     """Convert text to checkbox list with categories"""
     if not text:
+        print("DEBUG: No text to convert to checkbox list")
         return ''
+    
+    print("\n=== Converting to Checkbox List ===")
+    print(f"Input text:\n{text}")
     
     categories = parse_categorized_todos(text)
     lines = []
@@ -215,10 +234,11 @@ def convert_to_checkbox_list(text):
         if category != 'General':
             lines.append(f'@{category}')
         for todo in todos:
-            # 체크박스 형식 대신 단순 리스트 아이템으로 변환
             lines.append(f'- {todo}')
     
-    return '\n'.join(lines)
+    result = '\n'.join(lines)
+    print(f"\nConverted result:\n{result}")
+    return result
 
 def get_previous_day_todos(repo, issue_label, current_date):
     """Get unchecked todos from the previous day's issue"""
@@ -461,12 +481,16 @@ def main():
             # Convert new todos from commit message
             new_todos = []
             if commit_data['todo']:
+                print(f"\n=== Processing TODOs from Commit ===")
+                print(f"Todo section from commit:\n{commit_data['todo']}")
+                
                 todo_lines = convert_to_checkbox_list(commit_data['todo']).split('\n')
-                new_todos = [(False, line[5:].strip()) for line in todo_lines if line.startswith('- [ ]')]
-                print(f"New TODOs to be added: {len(new_todos)} items")
-                print("\n=== New TODOs List ===")
-                for _, todo_text in new_todos:
-                    print(f"⬜ {todo_text}")
+                print(f"Converted todo lines: {todo_lines}")
+                
+                new_todos = [(False, line[2:].strip()) for line in todo_lines if line.startswith('-')]
+                print(f"\nParsed new todos:")
+                for checked, text in new_todos:
+                    print(f"- [{checked}] {text}")
             
             # Maintain existing todos while adding new ones
             all_todos = merge_todos(existing_content['todos'], new_todos)
@@ -513,7 +537,7 @@ def main():
             new_todos = []
             if commit_data['todo']:
                 todo_lines = convert_to_checkbox_list(commit_data['todo']).split('\n')
-                new_todos = [(False, line[5:].strip()) for line in todo_lines if line.startswith('- [ ]')]
+                new_todos = [(False, line[2:].strip()) for line in todo_lines if line.startswith('-')]
             
             # Merge all todos
             all_todos = merge_todos(new_todos, previous_todos)
