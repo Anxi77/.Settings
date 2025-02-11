@@ -44,6 +44,35 @@ def parse_commit_message(message):
         'footer': match.group(5)
     }
 
+class CategoryManager:
+    def __init__(self):
+        self._categories = {}  # lowercase -> original case mapping
+        self._current = 'General'
+    
+    def add_category(self, category):
+        """Add a new category or get existing one"""
+        category = category.strip()
+        category_lower = category.lower()
+        
+        if category_lower not in self._categories:
+            self._categories[category_lower] = category
+        
+        return self._categories[category_lower]
+    
+    def get_category(self, category):
+        """Get original case of category"""
+        category_lower = category.lower()
+        return self._categories.get(category_lower, category)
+    
+    def set_current(self, category):
+        """Set current category"""
+        self._current = self.add_category(category)
+    
+    @property
+    def current(self):
+        """Get current category"""
+        return self._current
+
 def parse_categorized_todos(text):
     """Parse todos with categories"""
     if not text:
@@ -54,8 +83,7 @@ def parse_categorized_todos(text):
     print(f"Raw todo text:\n{text}")
     
     categories = {}
-    current_category = 'General'
-    category_case_map = {}  # 카테고리 대소문자 원본 보존
+    category_manager = CategoryManager()
     
     for line in text.strip().split('\n'):
         line = line.strip()
@@ -66,37 +94,19 @@ def parse_categorized_todos(text):
         
         if line.startswith('@'):
             category = line[1:].strip()
-            category_lower = category.lower()
-            
-            # 이미 존재하는 카테고리인지 확인
-            existing_category = next(
-                (orig for orig, lower in category_case_map.items() 
-                 if lower == category_lower),
-                None
-            )
-            
-            if existing_category:
-                current_category = existing_category
-                print(f"Using existing category: {current_category}")
-            else:
-                current_category = category
-                category_case_map[category] = category_lower
-                print(f"Found new category: {category}")
+            category = category_manager.add_category(category)
+            category_manager.set_current(category)
+            print(f"Found category: {category}")
             continue
             
         if line.startswith(('-', '*')):
-            category_key = next(
-                (orig for orig, lower in category_case_map.items() 
-                 if lower == current_category.lower()),
-                current_category
-            )
-            
-            if category_key not in categories:
-                categories[category_key] = []
+            category = category_manager.current
+            if category not in categories:
+                categories[category] = []
             
             item = line[1:].strip()
-            categories[category_key].append(item)
-            print(f"Added todo item to {category_key}: {item}")
+            categories[category].append(item)
+            print(f"Added todo item to {category}: {item}")
     
     print("\nParsed categories:")
     for category, items in categories.items():
@@ -191,8 +201,7 @@ def merge_todos(existing_todos, new_todos):
     """Merge two lists of todos, avoiding duplicates and preserving order and state"""
     result = []
     todo_map = {}
-    current_category = 'General'
-    seen_categories = {}  # 대소문자 구분 없이 카테고리 추적, 원본 케이스 보존
+    category_manager = CategoryManager()
     
     print("\n=== Merging TODOs ===")
     
@@ -200,39 +209,29 @@ def merge_todos(existing_todos, new_todos):
     for checked, text in existing_todos:
         if text.startswith('@'):
             category = text[1:].strip()
-            current_category = category
-            category_lower = category.lower()
-            if category_lower not in seen_categories:
-                seen_categories[category_lower] = category  # 원본 케이스 저장
-                result.append((False, text))
-                print(f"Found existing category: {category}")
+            category = category_manager.add_category(category)
+            result.append((False, f"@{category}"))
+            print(f"Found existing category: {category}")
             continue
             
         todo_map[text] = len(result)
         result.append((checked, text))
-        print(f"Added existing todo to {current_category}: {text}")
+        print(f"Added existing todo: {text}")
     
     # process new todos
-    current_category = 'General'
     for checked, text in new_todos:
         if text.startswith('@'):
             category = text[1:].strip()
-            current_category = category
-            category_lower = category.lower()
-            if category_lower not in seen_categories:
-                seen_categories[category_lower] = category
+            category = category_manager.add_category(category)
+            if not any(t[1] == f"@{category}" for t in result):
                 result.append((False, f"@{category}"))
                 print(f"Found new category: {category}")
-            else:
-                # 기존 카테고리의 대소문자 형식 사용
-                current_category = seen_categories[category_lower]
-                print(f"Using existing category case: {current_category}")
             continue
             
         if text not in todo_map:
             result.append((checked, text))
             todo_map[text] = len(result) - 1
-            print(f"Added new todo to {current_category}: {text}")
+            print(f"Added new todo: {text}")
         else:
             idx = todo_map[text]
             if checked and not result[idx][0]:
@@ -250,28 +249,27 @@ def create_todo_section(todos):
     
     # process categorized todos
     categorized = {}
-    current_category = 'General'
-    category_case_map = {}  # 카테고리 대소문자 원본 보존
+    category_manager = CategoryManager()
     
     for checked, todo_text in todos:
         print(f"Processing todo: {todo_text}")
         
         if todo_text.startswith('@'):
             category = todo_text[1:].strip()
-            category_lower = category.lower()
-            if category_lower not in category_case_map:
-                category_case_map[category_lower] = category
-            current_category = category_case_map[category_lower]
-            print(f"Found category: {current_category}")
+            category = category_manager.add_category(category)
+            category_manager.set_current(category)
+            print(f"Found category: {category}")
             continue
             
-        if current_category.lower() not in categorized:
-            categorized[current_category.lower()] = {
-                'name': current_category,
+        category = category_manager.current
+        category_lower = category.lower()
+        if category_lower not in categorized:
+            categorized[category_lower] = {
+                'name': category,
                 'todos': []
             }
-        categorized[current_category.lower()]['todos'].append((checked, todo_text))
-        print(f"Added to category '{current_category}': {todo_text}")
+        categorized[category_lower]['todos'].append((checked, todo_text))
+        print(f"Added to category '{category}': {todo_text}")
     
     # process categorized todos
     sections = []
