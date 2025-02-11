@@ -64,35 +64,47 @@ def parse_categorized_todos(text):
             
         print(f"Processing line: {line}")
         
-        # check if the line is a category header
         if line.startswith('@'):
-            original_category = line[1:].split(':')[0].strip()
-            current_category = original_category.lower()  # 소문자로 저장
-            category_case_map[current_category] = original_category  # 원본 대소문자 보존
-            print(f"Found category: {original_category}")
+            category = line[1:].strip()
+            category_lower = category.lower()
+            
+            # 이미 존재하는 카테고리인지 확인
+            existing_category = next(
+                (orig for orig, lower in category_case_map.items() 
+                 if lower == category_lower),
+                None
+            )
+            
+            if existing_category:
+                current_category = existing_category
+                print(f"Using existing category: {current_category}")
+            else:
+                current_category = category
+                category_case_map[category] = category_lower
+                print(f"Found new category: {category}")
             continue
             
-        # process todo items
         if line.startswith(('-', '*')):
-            if current_category not in categories:
-                categories[current_category] = []
+            category_key = next(
+                (orig for orig, lower in category_case_map.items() 
+                 if lower == current_category.lower()),
+                current_category
+            )
+            
+            if category_key not in categories:
+                categories[category_key] = []
+            
             item = line[1:].strip()
-            categories[current_category].append(item)
-            print(f"Added todo item to {category_case_map.get(current_category, current_category)}: {item}")
-    
-    # 결과 반환 시 원본 대소문자로 변환
-    result = {}
-    for category, items in categories.items():
-        original_case = category_case_map.get(category, category)
-        result[original_case] = items
+            categories[category_key].append(item)
+            print(f"Added todo item to {category_key}: {item}")
     
     print("\nParsed categories:")
-    for category, items in result.items():
+    for category, items in categories.items():
         print(f"{category}: {len(items)} items")
         for item in items:
             print(f"  - {item}")
     
-    return result
+    return categories
 
 def create_commit_section(commit_data, branch, commit_sha, author, time_string):
     """Create commit section with details tag"""
