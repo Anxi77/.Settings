@@ -180,22 +180,24 @@ def create_todo_section(todos):
     
     # 카테고리별 todos 구성
     categorized = {}
+    current_category = 'General'
+    
     for checked, todo_text in todos:
-        # 카테고리 추출 시도
-        if ':' in todo_text and todo_text.split(':')[0].isupper():
-            category = todo_text.split(':')[0].strip()
-            text = todo_text.split(':', 1)[1].strip()
-        else:
-            category = 'General'
-            text = todo_text
+        # @ 구분자로 카테고리 확인
+        if todo_text.startswith('@'):
+            current_category = todo_text[1:].strip()
+            continue
             
-        if category not in categorized:
-            categorized[category] = []
-        categorized[category].append((checked, text))
+        if current_category not in categorized:
+            categorized[current_category] = []
+        categorized[current_category].append((checked, todo_text))
     
     # 카테고리별로 details 태그 생성
     sections = []
     for category, category_todos in categorized.items():
+        if not category_todos:  # 빈 카테고리 건너뛰기
+            continue
+            
         if category == 'General':
             # General 카테고리는 바로 표시
             todo_lines = []
