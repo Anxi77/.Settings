@@ -208,19 +208,25 @@ def create_todo_section(todos):
     if not todos:
         return ''
     
+    print("\n=== Creating Todo Section ===")
+    
     # 카테고리별 todos 구성
     categorized = {}
     current_category = 'General'
     
     for checked, todo_text in todos:
+        print(f"Processing todo: {todo_text}")
+        
         # @ 구분자로 카테고리 확인
         if todo_text.startswith('@'):
             current_category = todo_text[1:].strip()
+            print(f"Found category: {current_category}")
             continue
             
         if current_category not in categorized:
             categorized[current_category] = []
         categorized[current_category].append((checked, todo_text))
+        print(f"Added to category '{current_category}': {todo_text}")
     
     # 카테고리별로 details 태그 생성
     sections = []
@@ -228,27 +234,32 @@ def create_todo_section(todos):
         if not category_todos:  # 빈 카테고리 건너뛰기
             continue
             
+        print(f"\nProcessing category: {category}")
+        print(f"Items in category: {len(category_todos)}")
+        
+        todo_lines = []
+        for checked, text in category_todos:
+            checkbox = '[x]' if checked else '[ ]'
+            todo_lines.append(f'- {checkbox} {text}')
+            print(f"Added todo line: {text}")
+        
         if category == 'General':
             # General 카테고리는 바로 표시
-            todo_lines = []
-            for checked, text in category_todos:
-                checkbox = '[x]' if checked else '[ ]'
-                todo_lines.append(f'- {checkbox} {text}')
             sections.append('\n'.join(todo_lines))
         else:
             # 다른 카테고리는 details로 감싸기
-            todo_lines = []
-            for checked, text in category_todos:
-                checkbox = '[x]' if checked else '[ ]'
-                todo_lines.append(f'- {checkbox} {text}')
-            
-            sections.append(f'''<details>
+            section = f'''<details>
 <summary>📑 {category}</summary>
 
 {'\n'.join(todo_lines)}
-</details>''')
+</details>'''
+            sections.append(section)
+            print(f"Created details section for {category}")
     
-    return '\n\n'.join(sections)
+    result = '\n\n'.join(sections)
+    print("\nFinal todo section:")
+    print(result)
+    return result
 
 def convert_to_checkbox_list(text):
     """Convert text to checkbox list with categories"""
