@@ -271,6 +271,7 @@ def create_todo_section(todos):
             sections.append(section)
             print(f"Created details section for {category}")
     
+    # Add extra newline between sections for better readability
     result = '\n\n'.join(sections)
     print("\nFinal todo section:")
     print(result)
