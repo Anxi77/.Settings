@@ -369,10 +369,18 @@ def convert_to_checkbox_list(text):
     categories = parse_categorized_todos(text)
     lines = []
     
-    # Process General category first if exists
-    if 'General' in categories:
+    # Find uncategorized items first
+    uncategorized = [line.strip()[2:] for line in text.split('\n') 
+                    if line.strip().startswith(('-', '*')) 
+                    and not any(line.strip() in todos for todos in categories.values())]
+    
+    # Always process General category first
+    if 'General' in categories or uncategorized:
         lines.append('@General')  # Add General category marker
-        lines.extend(f'- {todo}' for todo in categories['General'])
+        if 'General' in categories:
+            lines.extend(f'- {todo}' for todo in categories['General'])
+        if uncategorized:
+            lines.extend(f'- {todo}' for todo in uncategorized)
     
     # Process other categories in order, preserving original case
     for category, todos in categories.items():
@@ -385,18 +393,6 @@ def convert_to_checkbox_list(text):
                           and line[1:].strip().lower() == category.lower()), category)
         lines.append(f'@{original_case}')  # add category marker with original case
         lines.extend(f'- {todo}' for todo in todos)
-    
-    # If there are uncategorized items and no General category exists yet
-    uncategorized = [line.strip()[2:] for line in text.split('\n') 
-                    if line.strip().startswith(('-', '*')) 
-                    and not any(line.strip() in todos for todos in categories.values())]
-    
-    if uncategorized and 'General' not in categories:
-        if not lines:  # If no categories exist yet
-            lines.append('@General')
-        elif not lines[0].startswith('@General'):  # If General should be first
-            lines.insert(0, '@General')
-        lines.extend(f'- {todo}' for todo in uncategorized)
     
     result = '\n'.join(lines)
     print(f"\nConverted result:\n{result}")
@@ -649,12 +645,9 @@ def main():
                 todo_lines = convert_to_checkbox_list(commit_data['todo']).split('\n')
                 print(f"Converted todo lines: {todo_lines}")
                 
-                current_category = 'General'
                 for line in todo_lines:
                     if line.startswith('@'):
-                        # keep the category marker
                         new_todos.append((False, line))
-                        current_category = line[1:].strip()
                     elif line.startswith('-'):
                         new_todos.append((False, line[2:].strip()))
             
