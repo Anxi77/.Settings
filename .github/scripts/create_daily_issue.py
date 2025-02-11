@@ -168,50 +168,47 @@ def parse_existing_issue(body):
 
 def merge_todos(existing_todos, new_todos):
     """Merge two lists of todos, avoiding duplicates and preserving order and state"""
-    # Create a dictionary with todo text as key and (index, check state) as value
-    todo_map = {}
     result = []
+    todo_map = {}
     
     print("\n=== Merging TODOs ===")
     
-    # First, add all existing todos with their categories
-    current_category = 'General'
-    for checked, text in existing_todos:
-        if text.startswith('@'):
-            current_category = text[1:].strip()
-            result.append((False, f"@{current_category}"))
-            print(f"Found existing category: {current_category}")
-            continue
-        
-        if not text.startswith('@'):  # Skip category markers in map
-            todo_map[text] = len(result)
-        result.append((checked, text))
-        print(f"Added existing todo to {current_category}: {text}")
+    def process_todos(todos, is_new=False):
+        current_category = None
+        for checked, text in todos:
+            if text.startswith('@'):
+                current_category = text[1:].strip()
+                if not any(t[1] == text for t in result):  # 카테고리 중복 체크
+                    result.append((False, text))
+                    print(f"{'Added new' if is_new else 'Found existing'} category: {current_category}")
+            else:
+                if text not in todo_map:
+                    if current_category:
+                        print(f"Added {'new' if is_new else 'existing'} todo to {current_category}: {text}")
+                    else:
+                        print(f"Added {'new' if is_new else 'existing'} todo to General: {text}")
+                    result.append((checked, text))
+                    todo_map[text] = len(result) - 1
+                else:
+                    # Update existing todo's check state if newly checked
+                    idx = todo_map[text]
+                    if checked and not result[idx][0]:
+                        result[idx] = (True, text)
+                        print(f"Updated existing todo state: {text}")
     
-    # Then add new todos, preserving their categories
-    current_category = 'General'
-    for checked, text in new_todos:
-        if text.startswith('@'):
-            current_category = text[1:].strip()
-            if not any(t[1] == f"@{current_category}" for t in result):
-                result.append((False, f"@{current_category}"))
-                print(f"Found new category: {current_category}")
-            continue
-        
-        if text not in todo_map:
-            result.append((checked, text))
-            todo_map[text] = len(result) - 1
-            print(f"Added new todo to {current_category}: {text}")
-        else:
-            # Update existing todo's check state if newly checked
-            idx = todo_map[text]
-            if checked and not result[idx][0]:
-                result[idx] = (True, text)
-                print(f"Updated existing todo state: {text}")
+    # Process existing todos first
+    process_todos(existing_todos)
+    # Then process new todos
+    process_todos(new_todos, is_new=True)
     
     print("\nMerged todos:")
+    current_category = None
     for checked, text in result:
-        print(f"- [{'x' if checked else ' '}] {text}")
+        if text.startswith('@'):
+            current_category = text[1:].strip()
+            print(f"\n[{current_category}]")
+        else:
+            print(f"- [{'x' if checked else ' '}] {text}")
     
     return result
 
