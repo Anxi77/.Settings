@@ -54,7 +54,8 @@ def parse_categorized_todos(text):
     print(f"Raw todo text:\n{text}")
     
     categories = {}
-    current_category = 'General'  # 기본 카테고리
+    current_category = 'General'
+    category_case_map = {}  # 카테고리 대소문자 원본 보존
     
     for line in text.strip().split('\n'):
         line = line.strip()
@@ -65,8 +66,10 @@ def parse_categorized_todos(text):
         
         # check if the line is a category header
         if line.startswith('@'):
-            current_category = line[1:].split(':')[0].strip()
-            print(f"Found category: {current_category}")
+            original_category = line[1:].split(':')[0].strip()
+            current_category = original_category.lower()  # 소문자로 저장
+            category_case_map[current_category] = original_category  # 원본 대소문자 보존
+            print(f"Found category: {original_category}")
             continue
             
         # process todo items
@@ -75,15 +78,21 @@ def parse_categorized_todos(text):
                 categories[current_category] = []
             item = line[1:].strip()
             categories[current_category].append(item)
-            print(f"Added todo item to {current_category}: {item}")
+            print(f"Added todo item to {category_case_map.get(current_category, current_category)}: {item}")
+    
+    # 결과 반환 시 원본 대소문자로 변환
+    result = {}
+    for category, items in categories.items():
+        original_case = category_case_map.get(category, category)
+        result[original_case] = items
     
     print("\nParsed categories:")
-    for category, items in categories.items():
+    for category, items in result.items():
         print(f"{category}: {len(items)} items")
         for item in items:
             print(f"  - {item}")
     
-    return categories
+    return result
 
 def create_commit_section(commit_data, branch, commit_sha, author, time_string):
     """Create commit section with details tag"""
@@ -289,10 +298,14 @@ def convert_to_checkbox_list(text):
     categories = parse_categorized_todos(text)
     lines = []
     
-    # process categories in order
+    # process categories in order, preserving original case
     for category, todos in categories.items():
         if category != 'General':
-            lines.append(f'@{category}')  # add category marker
+            # Preserve the original category case from the commit message
+            original_case = next(line[1:].strip() for line in text.split('\n') 
+                              if line.strip().startswith('@') 
+                              and line[1:].strip().lower() == category.lower())
+            lines.append(f'@{original_case}')  # add category marker with original case
         for todo in todos:
             lines.append(f'- {todo}')
     
