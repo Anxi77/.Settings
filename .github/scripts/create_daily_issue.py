@@ -170,45 +170,41 @@ def merge_todos(existing_todos, new_todos):
     """Merge two lists of todos, avoiding duplicates and preserving order and state"""
     result = []
     todo_map = {}
+    current_category = 'General'
     
     print("\n=== Merging TODOs ===")
     
-    def process_todos(todos, is_new=False):
-        current_category = None
-        for checked, text in todos:
-            if text.startswith('@'):
-                current_category = text[1:].strip()
-                if not any(t[1] == text for t in result):  # 카테고리 중복 체크
-                    result.append((False, text))
-                    print(f"{'Added new' if is_new else 'Found existing'} category: {current_category}")
-            else:
-                if text not in todo_map:
-                    if current_category:
-                        print(f"Added {'new' if is_new else 'existing'} todo to {current_category}: {text}")
-                    else:
-                        print(f"Added {'new' if is_new else 'existing'} todo to General: {text}")
-                    result.append((checked, text))
-                    todo_map[text] = len(result) - 1
-                else:
-                    # Update existing todo's check state if newly checked
-                    idx = todo_map[text]
-                    if checked and not result[idx][0]:
-                        result[idx] = (True, text)
-                        print(f"Updated existing todo state: {text}")
-    
-    # Process existing todos first
-    process_todos(existing_todos)
-    # Then process new todos
-    process_todos(new_todos, is_new=True)
-    
-    print("\nMerged todos:")
-    current_category = None
-    for checked, text in result:
+    # 기존 todo 처리
+    for checked, text in existing_todos:
         if text.startswith('@'):
             current_category = text[1:].strip()
-            print(f"\n[{current_category}]")
+            result.append((False, text))
+            print(f"Found existing category: {current_category}")
+            continue
+            
+        todo_map[text] = len(result)
+        result.append((checked, text))
+        print(f"Added existing todo to {current_category}: {text}")
+    
+    # 새로운 todo 처리
+    current_category = 'General'
+    for checked, text in new_todos:
+        if text.startswith('@'):
+            current_category = text[1:].strip()
+            if not any(t[1] == text for t in result):
+                result.append((False, text))
+                print(f"Found new category: {current_category}")
+            continue
+            
+        if text not in todo_map:
+            result.append((checked, text))
+            todo_map[text] = len(result) - 1
+            print(f"Added new todo to {current_category}: {text}")
         else:
-            print(f"- [{'x' if checked else ' '}] {text}")
+            idx = todo_map[text]
+            if checked and not result[idx][0]:
+                result[idx] = (True, text)
+                print(f"Updated existing todo: {text}")
     
     return result
 
@@ -282,9 +278,10 @@ def convert_to_checkbox_list(text):
     categories = parse_categorized_todos(text)
     lines = []
     
+    # 카테고리 순서 유지를 위해 순서대로 처리
     for category, todos in categories.items():
         if category != 'General':
-            lines.append(f'@{category}')
+            lines.append(f'@{category}')  # 카테고리 마커 추가
         for todo in todos:
             lines.append(f'- {todo}')
     
@@ -539,10 +536,18 @@ def main():
                 todo_lines = convert_to_checkbox_list(commit_data['todo']).split('\n')
                 print(f"Converted todo lines: {todo_lines}")
                 
-                new_todos = [(False, line[2:].strip()) for line in todo_lines if line.startswith('-')]
-                print(f"\nParsed new todos:")
-                for checked, text in new_todos:
-                    print(f"- [{checked}] {text}")
+                current_category = 'General'
+                for line in todo_lines:
+                    if line.startswith('@'):
+                        # 카테고리 마커를 그대로 유지
+                        new_todos.append((False, line))
+                        current_category = line[1:].strip()
+                    elif line.startswith('-'):
+                        new_todos.append((False, line[2:].strip()))
+            
+            print(f"\nParsed new todos:")
+            for checked, text in new_todos:
+                print(f"- [{checked}] {text}")
             
             # Maintain existing todos while adding new ones
             all_todos = merge_todos(existing_content['todos'], new_todos)
