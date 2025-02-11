@@ -171,35 +171,47 @@ def merge_todos(existing_todos, new_todos):
     # Create a dictionary with todo text as key and (index, check state) as value
     todo_map = {}
     result = []
-    current_category = 'General'
     
-    # Process existing todos first
+    print("\n=== Merging TODOs ===")
+    
+    # First, add all existing todos with their categories
+    current_category = 'General'
     for checked, text in existing_todos:
         if text.startswith('@'):
             current_category = text[1:].strip()
-            result.append((False, f"@{current_category}"))  # Add category marker
+            result.append((False, f"@{current_category}"))
+            print(f"Found existing category: {current_category}")
             continue
         
-        todo_map[text] = len(result)
+        if not text.startswith('@'):  # Skip category markers in map
+            todo_map[text] = len(result)
         result.append((checked, text))
+        print(f"Added existing todo to {current_category}: {text}")
     
-    # Add new todos
+    # Then add new todos, preserving their categories
     current_category = 'General'
     for checked, text in new_todos:
         if text.startswith('@'):
             current_category = text[1:].strip()
-            if not any(t[1].startswith(f"@{current_category}") for t in result):
-                result.append((False, f"@{current_category}"))  # Add category marker if not exists
+            if not any(t[1] == f"@{current_category}" for t in result):
+                result.append((False, f"@{current_category}"))
+                print(f"Found new category: {current_category}")
             continue
         
         if text not in todo_map:
             result.append((checked, text))
             todo_map[text] = len(result) - 1
+            print(f"Added new todo to {current_category}: {text}")
         else:
             # Update existing todo's check state if newly checked
             idx = todo_map[text]
             if checked and not result[idx][0]:
                 result[idx] = (True, text)
+                print(f"Updated existing todo state: {text}")
+    
+    print("\nMerged todos:")
+    for checked, text in result:
+        print(f"- [{'x' if checked else ' '}] {text}")
     
     return result
 
