@@ -180,18 +180,18 @@ def merge_todos(existing_todos, new_todos):
     result = []
     todo_map = {}
     current_category = 'General'
-    seen_categories = set()  # 대소문자 구분 없이 카테고리 추적
+    seen_categories = {}  # 대소문자 구분 없이 카테고리 추적, 원본 케이스 보존
     
     print("\n=== Merging TODOs ===")
     
-    # process existing todos
+    # process existing todos first
     for checked, text in existing_todos:
         if text.startswith('@'):
             category = text[1:].strip()
             current_category = category
             category_lower = category.lower()
             if category_lower not in seen_categories:
-                seen_categories.add(category_lower)
+                seen_categories[category_lower] = category  # 원본 케이스 저장
                 result.append((False, text))
                 print(f"Found existing category: {category}")
             continue
@@ -208,11 +208,13 @@ def merge_todos(existing_todos, new_todos):
             current_category = category
             category_lower = category.lower()
             if category_lower not in seen_categories:
-                seen_categories.add(category_lower)
-                result.append((False, text))
+                seen_categories[category_lower] = category
+                result.append((False, f"@{category}"))
                 print(f"Found new category: {category}")
             else:
-                print(f"Skipping duplicate category (case-insensitive): {category}")
+                # 기존 카테고리의 대소문자 형식 사용
+                current_category = seen_categories[category_lower]
+                print(f"Using existing category case: {current_category}")
             continue
             
         if text not in todo_map:
