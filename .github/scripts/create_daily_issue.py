@@ -212,56 +212,57 @@ def merge_todos(existing_todos, new_todos):
     todo_map = {}
     category_manager = CategoryManager()
     
-    print("\n=== Merging TODOs ===")
-    
-    # process existing todos first
+    # Process existing todos
+    current_category = 'General'  # Set default category as General
     for checked, text in existing_todos:
         if text.startswith('@'):
-            category = text[1:].strip()
-            category = category_manager.add_category(category)
-            result.append((False, f"@{category}"))
-            print(f"Found existing category: {category}")
+            current_category = text[1:].strip()
+            result.append((False, f"@{current_category}"))
             continue
             
         todo_map[text] = len(result)
         result.append((checked, text))
-        print(f"Added existing todo: {text}")
     
-    # process new todos
-    current_category = None
+    # Process new todos
+    # Add General category if there are uncategorized items
+    if not any(t[1].startswith('@') for t in new_todos):
+        result.insert(0, (False, "@General"))
+        
     for checked, text in new_todos:
         if text.startswith('@'):
-            category = text[1:].strip()
-            category = category_manager.add_category(category)
-            current_category = category
-            if not any(t[1] == f"@{category}" for t in result):
-                result.append((False, f"@{category}"))
-                print(f"Found new category: {category}")
+            current_category = text[1:].strip()
+            # Add category marker if not exists
+            if not any(t[1] == f"@{current_category}" for t in result):
+                result.append((False, f"@{current_category}"))
             continue
             
-        # Find the appropriate category section in result
-        if current_category:
-            category_index = next((i for i, (_, t) in enumerate(result) 
-                                if t == f"@{current_category}"), None)
-            if category_index is not None:
-                # Find the next category marker or end of list
-                next_category_index = next((i for i, (_, t) in enumerate(result[category_index + 1:], 
-                                        start=category_index + 1) if t.startswith('@')), len(result))
-                
-                if text not in todo_map:
-                    # Insert the new todo just before the next category
-                    result.insert(next_category_index, (checked, text))
-                    # Update indices in todo_map
-                    for t, idx in todo_map.items():
-                        if idx >= next_category_index:
-                            todo_map[t] = idx + 1
-                    todo_map[text] = next_category_index
-                    print(f"Added new todo to {current_category}: {text}")
-                else:
-                    idx = todo_map[text]
-                    if checked and not result[idx][0]:
-                        result[idx] = (True, text)
-                        print(f"Updated existing todo in {current_category}: {text}")
+        # Add General category marker for uncategorized items
+        if current_category == 'General' and not any(t[1] == "@General" for t in result):
+            result.insert(0, (False, "@General"))
+            
+        # Find the appropriate category section
+        category_index = next((i for i, (_, t) in enumerate(result) 
+                            if t == f"@{current_category}"), None)
+        
+        if category_index is not None:
+            # Find the next category marker or end of list
+            next_category_index = next((i for i, (_, t) in enumerate(result[category_index + 1:], 
+                                    start=category_index + 1) if t.startswith('@')), len(result))
+            
+            if text not in todo_map:
+                # Insert the new todo just before the next category
+                result.insert(next_category_index, (checked, text))
+                # Update indices in todo_map
+                for t, idx in todo_map.items():
+                    if idx >= next_category_index:
+                        todo_map[t] = idx + 1
+                todo_map[text] = next_category_index
+                print(f"Added new todo to {current_category}: {text}")
+            else:
+                idx = todo_map[text]
+                if checked and not result[idx][0]:
+                    result[idx] = (True, text)
+                    print(f"Updated existing todo in {current_category}: {text}")
     
     return result
 
