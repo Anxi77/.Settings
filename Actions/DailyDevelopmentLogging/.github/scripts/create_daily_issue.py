@@ -93,6 +93,7 @@ def parse_categorized_todos(text):
     
     categories = {}
     category_manager = CategoryManager()
+    has_uncategorized_items = False
     
     for line in text.strip().split('\n'):
         line = line.strip()
@@ -116,6 +117,14 @@ def parse_categorized_todos(text):
             item = line[1:].strip()
             categories[category].append(item)
             print(f"Added todo item to {category}: {item}")
+            
+            # Mark if we have items without explicit category
+            if category == 'General':
+                has_uncategorized_items = True
+    
+    # Ensure General category exists if we have uncategorized items
+    if has_uncategorized_items and 'General' not in categories:
+        categories['General'] = []
     
     print("\nParsed categories:")
     for category, items in categories.items():
@@ -212,56 +221,57 @@ def merge_todos(existing_todos, new_todos):
     todo_map = {}
     category_manager = CategoryManager()
     
-    print("\n=== Merging TODOs ===")
-    
-    # process existing todos first
+    # Process existing todos
+    current_category = 'General'  # Set default category as General
     for checked, text in existing_todos:
         if text.startswith('@'):
-            category = text[1:].strip()
-            category = category_manager.add_category(category)
-            result.append((False, f"@{category}"))
-            print(f"Found existing category: {category}")
+            current_category = text[1:].strip()
+            result.append((False, f"@{current_category}"))
             continue
             
         todo_map[text] = len(result)
         result.append((checked, text))
-        print(f"Added existing todo: {text}")
     
-    # process new todos
-    current_category = None
+    # Process new todos
+    # Add General category if there are uncategorized items
+    if not any(t[1].startswith('@') for t in new_todos):
+        result.insert(0, (False, "@General"))
+        
     for checked, text in new_todos:
         if text.startswith('@'):
-            category = text[1:].strip()
-            category = category_manager.add_category(category)
-            current_category = category
-            if not any(t[1] == f"@{category}" for t in result):
-                result.append((False, f"@{category}"))
-                print(f"Found new category: {category}")
+            current_category = text[1:].strip()
+            # Add category marker if not exists
+            if not any(t[1] == f"@{current_category}" for t in result):
+                result.append((False, f"@{current_category}"))
             continue
             
-        # Find the appropriate category section in result
-        if current_category:
-            category_index = next((i for i, (_, t) in enumerate(result) 
-                                if t == f"@{current_category}"), None)
-            if category_index is not None:
-                # Find the next category marker or end of list
-                next_category_index = next((i for i, (_, t) in enumerate(result[category_index + 1:], 
-                                        start=category_index + 1) if t.startswith('@')), len(result))
-                
-                if text not in todo_map:
-                    # Insert the new todo just before the next category
-                    result.insert(next_category_index, (checked, text))
-                    # Update indices in todo_map
-                    for t, idx in todo_map.items():
-                        if idx >= next_category_index:
-                            todo_map[t] = idx + 1
-                    todo_map[text] = next_category_index
-                    print(f"Added new todo to {current_category}: {text}")
-                else:
-                    idx = todo_map[text]
-                    if checked and not result[idx][0]:
-                        result[idx] = (True, text)
-                        print(f"Updated existing todo in {current_category}: {text}")
+        # Add General category marker for uncategorized items
+        if current_category == 'General' and not any(t[1] == "@General" for t in result):
+            result.insert(0, (False, "@General"))
+            
+        # Find the appropriate category section
+        category_index = next((i for i, (_, t) in enumerate(result) 
+                            if t == f"@{current_category}"), None)
+        
+        if category_index is not None:
+            # Find the next category marker or end of list
+            next_category_index = next((i for i, (_, t) in enumerate(result[category_index + 1:], 
+                                    start=category_index + 1) if t.startswith('@')), len(result))
+            
+            if text not in todo_map:
+                # Insert the new todo just before the next category
+                result.insert(next_category_index, (checked, text))
+                # Update indices in todo_map
+                for t, idx in todo_map.items():
+                    if idx >= next_category_index:
+                        todo_map[t] = idx + 1
+                todo_map[text] = next_category_index
+                print(f"Added new todo to {current_category}: {text}")
+            else:
+                idx = todo_map[text]
+                if checked and not result[idx][0]:
+                    result[idx] = (True, text)
+                    print(f"Updated existing todo in {current_category}: {text}")
     
     return result
 
@@ -359,16 +369,30 @@ def convert_to_checkbox_list(text):
     categories = parse_categorized_todos(text)
     lines = []
     
-    # process categories in order, preserving original case
+    # Find uncategorized items first
+    uncategorized = [line.strip()[2:] for line in text.split('\n') 
+                    if line.strip().startswith(('-', '*')) 
+                    and not any(line.strip() in todos for todos in categories.values())]
+    
+    # Always process General category first
+    if 'General' in categories or uncategorized:
+        lines.append('@General')  # Add General category marker
+        if 'General' in categories:
+            lines.extend(f'- {todo}' for todo in categories['General'])
+        if uncategorized:
+            lines.extend(f'- {todo}' for todo in uncategorized)
+    
+    # Process other categories in order, preserving original case
     for category, todos in categories.items():
-        if category != 'General':
-            # Preserve the original category case from the commit message
-            original_case = next(line[1:].strip() for line in text.split('\n') 
-                              if line.strip().startswith('@') 
-                              and line[1:].strip().lower() == category.lower())
-            lines.append(f'@{original_case}')  # add category marker with original case
-        for todo in todos:
-            lines.append(f'- {todo}')
+        if category == 'General':
+            continue
+            
+        # Preserve the original category case from the commit message
+        original_case = next((line[1:].strip() for line in text.split('\n') 
+                          if line.strip().startswith('@') 
+                          and line[1:].strip().lower() == category.lower()), category)
+        lines.append(f'@{original_case}')  # add category marker with original case
+        lines.extend(f'- {todo}' for todo in todos)
     
     result = '\n'.join(lines)
     print(f"\nConverted result:\n{result}")
@@ -621,12 +645,9 @@ def main():
                 todo_lines = convert_to_checkbox_list(commit_data['todo']).split('\n')
                 print(f"Converted todo lines: {todo_lines}")
                 
-                current_category = 'General'
                 for line in todo_lines:
                     if line.startswith('@'):
-                        # keep the category marker
                         new_todos.append((False, line))
-                        current_category = line[1:].strip()
                     elif line.startswith('-'):
                         new_todos.append((False, line[2:].strip()))
             
