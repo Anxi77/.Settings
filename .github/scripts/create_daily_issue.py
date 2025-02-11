@@ -172,33 +172,88 @@ def is_commit_already_logged(commit_message, existing_content):
     """check if the commit is already logged"""
     # extract the title part of the commit message
     commit_title = commit_message.split('\n')[0].strip()
+    commit_body = '\n'.join(commit_message.split('\n')[1:]).strip()
+    
+    print(f"\n=== Checking for duplicate commit ===")
+    print(f"Checking commit: {commit_title}")
     
     # check if the commit is already logged
     for branch_content in existing_content['branches'].values():
+        # filter the commit by title
         if commit_title in branch_content:
-            return True
+            print(f"Found matching title in existing content")
+            
+            # compare the body content (optional)
+            if commit_body and commit_body in branch_content:
+                print(f"Found matching body content - considering as duplicate")
+                return True
+            elif not commit_body:
+                print(f"No body content to compare - considering as duplicate based on title")
+                return True
+            else:
+                print(f"Body content differs - not a duplicate")
+    
+    print(f"No matching commit found")
     return False
 
 def get_merge_commits(repo, merge_commit):
     """get the child commits of the merge commit"""
     if len(merge_commit.parents) != 2:  # not a merge commit
+        print("Not a merge commit - skipping")
         return []
     
-    main_parent = merge_commit.parents[0]  # main branch
-    feature_parent = merge_commit.parents[1]  # feature branch
+    parent1 = merge_commit.parents[0]
+    parent2 = merge_commit.parents[1]
+    
+    print(f"\n=== Merge Commit Analysis ===")
+    print(f"Merge commit SHA: {merge_commit.sha}")
+    print(f"Parent1 SHA: {parent1.sha}")
+    print(f"Parent2 SHA: {parent2.sha}")
     
     try:
-        # find the commits in the feature branch that are not in the main branch
-        comparison = repo.compare(main_parent.sha, feature_parent.sha)
-        commits = list(comparison.commits)  # PaginatedList를 list로 변환
+        # find the common ancestor
+        base_commit = repo.merge_base(parent1.sha, parent2.sha)[0]
+        print(f"Found base commit: {base_commit.sha}")
         
-        print(f"Found {len(commits)} commits in merge")
-        for commit in commits:
-            print(f"- {commit.commit.message.split('\n')[0]}")
-            
-        return commits
+        # get commits from each parent
+        comparison1 = repo.compare(base_commit.sha, parent1.sha)
+        comparison2 = repo.compare(base_commit.sha, parent2.sha)
+        
+        commits1 = list(comparison1.commits)
+        commits2 = list(comparison2.commits)
+        
+        print(f"\n=== Commit Analysis ===")
+        print(f"Parent1 commits count: {len(commits1)}")
+        print("Parent1 commits:")
+        for c in commits1:
+            print(f"- [{c.sha[:7]}] {c.commit.message.split('\n')[0]}")
+        
+        print(f"\nParent2 commits count: {len(commits2)}")
+        print("Parent2 commits:")
+        for c in commits2:
+            print(f"- [{c.sha[:7]}] {c.commit.message.split('\n')[0]}")
+        
+        # remove duplicate commits
+        unique_commits = []
+        seen_messages = set()
+        
+        for commit_list in [commits1, commits2]:
+            for commit in commit_list:
+                msg = commit.commit.message.strip()
+                if msg not in seen_messages:
+                    seen_messages.add(msg)
+                    unique_commits.append(commit)
+        
+        print(f"\nUnique commits found: {len(unique_commits)}")
+        for c in unique_commits:
+            print(f"- [{c.sha[:7]}] {c.commit.message.split('\n')[0]}")
+        
+        return unique_commits
+        
     except Exception as e:
-        print(f"Error getting merge commits: {e}")
+        print(f"\n=== Error in merge commit analysis ===")
+        print(f"Error type: {type(e).__name__}")
+        print(f"Error message: {str(e)}")
         return []
 
 def main():
@@ -228,7 +283,6 @@ def main():
     commits_to_process = []
     if len(commit.parents) == 2:  # merge commit
         print("Merge commit detected - processing child commits...")
-
         commits_to_process = get_merge_commits(repo, commit)
 
     if not commits_to_process:  # not a merge commit or failed to get child commits
@@ -268,9 +322,24 @@ def main():
             issue.edit(state='closed')
             print(f"Closed previous issue #{issue.number}")
 
-    # check if the commit is already logged
-    if is_commit_already_logged(commit.commit.message, existing_content):
-        print(f"Skipping existing commit: {commit.commit.message.split('\n')[0]}")
+    # process commits which are not logged in the issue
+    filtered_commits = []
+    seen_messages = set()
+    
+    print("\n=== Filtering commits ===")
+    for commit_to_process in commits_to_process:
+        msg = commit_to_process.commit.message.strip()
+        if msg not in seen_messages and not is_commit_already_logged(msg, existing_content):
+            seen_messages.add(msg)
+            filtered_commits.append(commit_to_process)
+            print(f"Adding commit: [{commit_to_process.sha[:7]}] {msg.split('\n')[0]}")
+        else:
+            print(f"Skipping duplicate commit: [{commit_to_process.sha[:7]}] {msg.split('\n')[0]}")
+    
+    commits_to_process = filtered_commits
+    
+    if not commits_to_process:
+        print("No new commits to process after filtering")
         return
 
     # Parse commit message
