@@ -63,13 +63,13 @@ def parse_categorized_todos(text):
             
         print(f"Processing line: {line}")
         
-        # 카테고리 헤더 체크 (예: @Category 또는 @Category:설명)
+        # check if the line is a category header
         if line.startswith('@'):
             current_category = line[1:].split(':')[0].strip()
             print(f"Found category: {current_category}")
             continue
             
-        # todo 항목 처리
+        # process todo items
         if line.startswith(('-', '*')):
             if current_category not in categories:
                 categories[current_category] = []
@@ -145,19 +145,19 @@ def parse_existing_issue(body):
                 if not line:
                     continue
                     
-                # details 태그 처리
+                # skip details tags 
                 if '<details>' in line:
                     continue
                 if '</details>' in line:
                     continue
                     
-                # 카테고리 헤더 처리
+                # process category header
                 if '<summary>📑' in line:
                     current_category = line.split('📑')[1].split('</summary>')[0].strip()
                     result['todos'].append((False, f"@{current_category}"))
                     continue
                 
-                # todo 항목 처리
+                # process todo items
                 checkbox_match = re.match(r'- \[([ x])\] (.*)', line)
                 if checkbox_match:
                     is_checked = checkbox_match.group(1) == 'x'
@@ -171,29 +171,39 @@ def merge_todos(existing_todos, new_todos):
     result = []
     todo_map = {}
     current_category = 'General'
+    seen_categories = set()  # 대소문자 구분 없이 카테고리 추적
     
     print("\n=== Merging TODOs ===")
     
-    # 기존 todo 처리
+    # process existing todos
     for checked, text in existing_todos:
         if text.startswith('@'):
-            current_category = text[1:].strip()
-            result.append((False, text))
-            print(f"Found existing category: {current_category}")
+            category = text[1:].strip()
+            current_category = category
+            category_lower = category.lower()
+            if category_lower not in seen_categories:
+                seen_categories.add(category_lower)
+                result.append((False, text))
+                print(f"Found existing category: {category}")
             continue
             
         todo_map[text] = len(result)
         result.append((checked, text))
         print(f"Added existing todo to {current_category}: {text}")
     
-    # 새로운 todo 처리
+    # process new todos
     current_category = 'General'
     for checked, text in new_todos:
         if text.startswith('@'):
-            current_category = text[1:].strip()
-            if not any(t[1] == text for t in result):
+            category = text[1:].strip()
+            current_category = category
+            category_lower = category.lower()
+            if category_lower not in seen_categories:
+                seen_categories.add(category_lower)
                 result.append((False, text))
-                print(f"Found new category: {current_category}")
+                print(f"Found new category: {category}")
+            else:
+                print(f"Skipping duplicate category (case-insensitive): {category}")
             continue
             
         if text not in todo_map:
@@ -215,14 +225,14 @@ def create_todo_section(todos):
     
     print("\n=== Creating Todo Section ===")
     
-    # 카테고리별 todos 구성
+    # process categorized todos
     categorized = {}
     current_category = 'General'
     
     for checked, todo_text in todos:
         print(f"Processing todo: {todo_text}")
         
-        # @ 구분자로 카테고리 확인
+        # check if the todo is a category header
         if todo_text.startswith('@'):
             current_category = todo_text[1:].strip()
             print(f"Found category: {current_category}")
@@ -233,10 +243,10 @@ def create_todo_section(todos):
         categorized[current_category].append((checked, todo_text))
         print(f"Added to category '{current_category}': {todo_text}")
     
-    # 카테고리별로 details 태그 생성
+    # process categorized todos
     sections = []
     for category, category_todos in categorized.items():
-        if not category_todos:  # 빈 카테고리 건너뛰기
+        if not category_todos:  # skip empty categories
             continue
             
         print(f"\nProcessing category: {category}")
@@ -249,10 +259,10 @@ def create_todo_section(todos):
             print(f"Added todo line: {text}")
         
         if category == 'General':
-            # General 카테고리는 바로 표시
+            # General category is displayed directly
             sections.append('\n'.join(todo_lines))
         else:
-            # 다른 카테고리는 details로 감싸기
+            # other categories are wrapped in details
             section = f'''<details>
 <summary>📑 {category}</summary>
 
@@ -278,10 +288,10 @@ def convert_to_checkbox_list(text):
     categories = parse_categorized_todos(text)
     lines = []
     
-    # 카테고리 순서 유지를 위해 순서대로 처리
+    # process categories in order
     for category, todos in categories.items():
         if category != 'General':
-            lines.append(f'@{category}')  # 카테고리 마커 추가
+            lines.append(f'@{category}')  # add category marker
         for todo in todos:
             lines.append(f'- {todo}')
     
@@ -539,7 +549,7 @@ def main():
                 current_category = 'General'
                 for line in todo_lines:
                     if line.startswith('@'):
-                        # 카테고리 마커를 그대로 유지
+                        # keep the category marker
                         new_todos.append((False, line))
                         current_category = line[1:].strip()
                     elif line.startswith('-'):
