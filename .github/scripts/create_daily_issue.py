@@ -139,8 +139,25 @@ def parse_existing_issue(body):
     if todo_match:
         todo_section = todo_match.group(1).strip()
         if todo_section:
-            todo_lines = [line.strip() for line in todo_section.split('\n') if line.strip()]
-            for line in todo_lines:
+            current_category = 'General'
+            for line in todo_section.split('\n'):
+                line = line.strip()
+                if not line:
+                    continue
+                    
+                # details 태그 처리
+                if '<details>' in line:
+                    continue
+                if '</details>' in line:
+                    continue
+                    
+                # 카테고리 헤더 처리
+                if '<summary>📑' in line:
+                    current_category = line.split('📑')[1].split('</summary>')[0].strip()
+                    result['todos'].append((False, f"@{current_category}"))
+                    continue
+                
+                # todo 항목 처리
                 checkbox_match = re.match(r'- \[([ x])\] (.*)', line)
                 if checkbox_match:
                     is_checked = checkbox_match.group(1) == 'x'
@@ -153,23 +170,36 @@ def merge_todos(existing_todos, new_todos):
     """Merge two lists of todos, avoiding duplicates and preserving order and state"""
     # Create a dictionary with todo text as key and (index, check state) as value
     todo_map = {}
-    for idx, (checked, text) in enumerate(existing_todos):
-        todo_map[text] = (idx, checked)
+    result = []
+    current_category = 'General'
     
-    # Initialize result list (with existing size)
-    result = list(existing_todos)
+    # Process existing todos first
+    for checked, text in existing_todos:
+        if text.startswith('@'):
+            current_category = text[1:].strip()
+            result.append((False, f"@{current_category}"))  # Add category marker
+            continue
+        
+        todo_map[text] = len(result)
+        result.append((checked, text))
     
-    # Add new todos (check for duplicates)
+    # Add new todos
+    current_category = 'General'
     for checked, text in new_todos:
-        if text in todo_map:
-            # For existing todos, update check state only if newly checked
-            idx, existing_checked = todo_map[text]
-            if checked and not existing_checked:
-                result[idx] = (True, text)
-        else:
-            # Add new todo
+        if text.startswith('@'):
+            current_category = text[1:].strip()
+            if not any(t[1].startswith(f"@{current_category}") for t in result):
+                result.append((False, f"@{current_category}"))  # Add category marker if not exists
+            continue
+        
+        if text not in todo_map:
             result.append((checked, text))
-            todo_map[text] = (len(result) - 1, checked)
+            todo_map[text] = len(result) - 1
+        else:
+            # Update existing todo's check state if newly checked
+            idx = todo_map[text]
+            if checked and not result[idx][0]:
+                result[idx] = (True, text)
     
     return result
 
