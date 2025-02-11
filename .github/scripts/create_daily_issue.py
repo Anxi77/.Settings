@@ -211,13 +211,9 @@ def get_merge_commits(repo, merge_commit):
     print(f"Parent2 SHA: {parent2.sha}")
     
     try:
-        # find the common ancestor
-        base_commit = repo.merge_base(parent1.sha, parent2.sha)[0]
-        print(f"Found base commit: {base_commit.sha}")
-        
-        # get commits from each parent
-        comparison1 = repo.compare(base_commit.sha, parent1.sha)
-        comparison2 = repo.compare(base_commit.sha, parent2.sha)
+        # get the commits from each parent
+        comparison1 = repo.compare(parent1.sha, merge_commit.sha)
+        comparison2 = repo.compare(parent2.sha, merge_commit.sha)
         
         commits1 = list(comparison1.commits)
         commits2 = list(comparison2.commits)
