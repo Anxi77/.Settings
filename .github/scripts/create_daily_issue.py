@@ -371,6 +371,7 @@ def convert_to_checkbox_list(text):
     
     # Process General category first if exists
     if 'General' in categories:
+        lines.append('@General')  # Add General category marker
         lines.extend(f'- {todo}' for todo in categories['General'])
     
     # Process other categories in order, preserving original case
