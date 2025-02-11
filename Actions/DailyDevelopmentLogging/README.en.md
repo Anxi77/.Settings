@@ -38,8 +38,15 @@ Write detailed content here.
 Multiple lines are supported.
 
 [Todo]
-- New TODO item 1
-- New TODO item 2
+@Category1
+- Todo item for category 1
+- Another todo item for category 1
+
+@Category2
+- Todo item for category 2
+
+- Uncategorized todo item (goes to General category)
+- Another uncategorized todo item
 
 [Footer]
 #related-issue #tags
@@ -55,6 +62,30 @@ Multiple lines are supported.
 - `chore`: 🔧 Build/config changes
 - `style`: 💄 Code style changes
 - `perf`: ⚡️ Performance improvements
+
+### Todo Categories
+
+- Use `@CategoryName` to create or switch to a category
+- Todo items below a category marker belong to that category
+- Uncategorized items are automatically placed in the 'General' category
+- Category names are case-insensitive (`@SYSTEM` and `@System` are treated as the same category)
+- Original category case is preserved in display
+
+### Todo Section Format
+
+```markdown
+<details>
+<summary>📑 General</summary>
+- [ ] Uncategorized todo item 1
+- [ ] Uncategorized todo item 2
+</details>
+
+<details>
+<summary>📑 Category1</summary>
+- [ ] Todo item 1
+- [x] Todo item 2 (completed)
+</details>
+```
 
 ## ⚙️ Configuration
 

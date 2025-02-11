@@ -24,7 +24,10 @@
 - 📅 일일 개발 로그 자동 생성
 - 🌿 브랜치별 커밋 관리
 - ✅ TODO 항목 추적
-- 이전 TODO 자동 이전
+- 🔄 이전 TODO 자동 이전
+- 📑 @카테고리 문법을 사용한 TODO 항목 분류
+- 🔠 대소문자 구분 없는 카테고리 처리
+- 📋 미분류 항목을 위한 General 카테고리 자동 생성
 
 ### 🧮 [알고리즘 문제풀이](https://github.com/Anxi77/.Settings/tree/main/AlgorithmSolving)
 
@@ -56,7 +59,7 @@ OpenGL 개발 환경 구성:
 - 🔄 디버그 및 릴리스 구성
 - 💻 크로스 플랫폼 지원
 
-### 🎲 [Unity](https://github.com/Anxi77/.Settings/tree/main/Unity) 
+### 🎲 [Unity](https://github.com/Anxi77/.Settings/tree/main/Unity)
 
 Unity 개발 환경 구성:
 

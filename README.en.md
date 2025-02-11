@@ -18,6 +18,9 @@ This repository contains various presets for development environment configurati
 - 🌿 Branch-wise commit management
 - ✅ TODO item tracking
 - 🔄 Previous TODO migration
+- 📑 Categorized TODO management with @category syntax
+- 🔠 Case-insensitive category handling
+- 📋 Automatic General category for uncategorized items
 
 ### 🧮 [AlgorithmSolving](https://github.com/Anxi77/.Settings/tree/main/AlgorithmSolving)
 
@@ -29,7 +32,7 @@ Algorithm problem-solving environment setup with:
 - 📥 Automatic input/output file handling
 - 📚 Pre-configured bits/stdc++.h header
 
-### 🎮 [DirectX](https://github.com/Anxi77/.Settings/tree/main/DirectX) 
+### 🎮 [DirectX](https://github.com/Anxi77/.Settings/tree/main/DirectX)
 
 DirectX development environment with:
 
@@ -100,6 +103,5 @@ Pull requests are welcome if you'd like to suggest new configurations or improve
 [VSCode](https://github.com/Anxi77/.Settings/tree/main/VSCode) •
 [ReadmeTemplates](https://github.com/Anxi77/.Settings/tree/main/Readme) •
 [DailyDevelopmentLogging](https://github.com/Anxi77/.Settings/tree/main/Actions/DailyDevelopmentLogging)
-
 
 </div>
