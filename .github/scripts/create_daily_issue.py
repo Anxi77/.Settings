@@ -44,19 +44,31 @@ def parse_commit_message(message):
         'footer': match.group(5)
     }
 
-def convert_to_checkbox_list(text):
-    """Convert text to checkbox list"""
+def parse_categorized_todos(text):
+    """Parse todos with categories"""
     if not text:
-        return ''
+        return {}
     
-    lines = []
+    categories = {}
+    current_category = 'General'  # 기본 카테고리
+    
     for line in text.strip().split('\n'):
         line = line.strip()
+        if not line:
+            continue
+            
+        # 카테고리 헤더 체크 (예: @Category 또는 @Category:설명)
+        if line.startswith('@'):
+            current_category = line[1:].split(':')[0].strip()
+            continue
+            
+        # todo 항목 처리
         if line.startswith(('-', '*')):
-            line = f"- [ ] {line[1:].strip()}"
-        lines.append(line)
+            if current_category not in categories:
+                categories[current_category] = []
+            categories[current_category].append(line[1:].strip())
     
-    return '\n'.join(lines)
+    return categories
 
 def create_commit_section(commit_data, branch, commit_sha, author, time_string):
     """Create commit section with details tag"""
@@ -147,16 +159,66 @@ def merge_todos(existing_todos, new_todos):
     return result
 
 def create_todo_section(todos):
-    """Create todo section from list of (checked, text) tuples"""
+    """Create todo section with categories"""
     if not todos:
         return ''
     
-    todo_lines = []
-    for checked, text in todos:
-        checkbox = '[x]' if checked else '[ ]'
-        todo_lines.append(f'- {checkbox} {text}')
+    # 카테고리별 todos 구성
+    categorized = {}
+    for checked, todo_text in todos:
+        # 카테고리 추출 시도
+        if ':' in todo_text and todo_text.split(':')[0].isupper():
+            category = todo_text.split(':')[0].strip()
+            text = todo_text.split(':', 1)[1].strip()
+        else:
+            category = 'General'
+            text = todo_text
+            
+        if category not in categorized:
+            categorized[category] = []
+        categorized[category].append((checked, text))
     
-    return '\n'.join(todo_lines)
+    # 카테고리별로 details 태그 생성
+    sections = []
+    for category, category_todos in categorized.items():
+        if category == 'General':
+            # General 카테고리는 바로 표시
+            todo_lines = []
+            for checked, text in category_todos:
+                checkbox = '[x]' if checked else '[ ]'
+                todo_lines.append(f'- {checkbox} {text}')
+            sections.append('\n'.join(todo_lines))
+        else:
+            # 다른 카테고리는 details로 감싸기
+            todo_lines = []
+            for checked, text in category_todos:
+                checkbox = '[x]' if checked else '[ ]'
+                todo_lines.append(f'- {checkbox} {text}')
+            
+            sections.append(f'''<details>
+<summary>📑 {category}</summary>
+
+{'\n'.join(todo_lines)}
+</details>''')
+    
+    return '\n\n'.join(sections)
+
+def convert_to_checkbox_list(text):
+    """Convert text to checkbox list with categories"""
+    if not text:
+        return ''
+    
+    categories = parse_categorized_todos(text)
+    lines = []
+    
+    for category, todos in categories.items():
+        if category != 'General':
+            lines.append(f'@{category}')
+        for todo in todos:
+            # 체크박스 형식 대신 단순 리스트 아이템으로 변환
+            lines.append(f'- {todo}')
+    
+    return '\n'.join(lines)
 
 def get_previous_day_todos(repo, issue_label, current_date):
     """Get unchecked todos from the previous day's issue"""
