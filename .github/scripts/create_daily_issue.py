@@ -150,7 +150,7 @@ def create_commit_section(commit_data, branch, commit_sha, author, time_string, 
     for issue_num in issue_numbers:
         try:
             issue = repo.get_issue(int(issue_num))
-            issue.create_comment(f"Referenced in commit {commit_sha}\n\nCommit message:\n```\n{commit_data['title']}\n```")
+            issue.create_comment(f"Referenced in commit: `{commit_sha}`\n\nCommit message:\n```\n{commit_data['title']}\n```")
             related_issues.append(f"Related to #{issue_num}")
         except Exception as e:
             print(f"Failed to add comment to issue #{issue_num}: {str(e)}")
@@ -163,7 +163,7 @@ def create_commit_section(commit_data, branch, commit_sha, author, time_string, 
 > <summary>💫 {time_string} - {commit_data['title'].strip()}</summary>
 >
 > Type: {commit_data['type']} ({commit_data['type_info']['description']})
-> Commit: {commit_sha}
+> Commit: `{commit_sha}`
 > Author: {author}
 >
 {quoted_body}
@@ -335,14 +335,16 @@ def create_todo_section(todos):
     
     # Add General category first if it has items
     if general_todos:
+        completed = sum(1 for checked, _ in general_todos if checked)
+        total = len(general_todos)
         section = f'''<details>
-<summary>📑 General</summary>
+<summary>📑 General ({completed}/{total})</summary>
 
 {'\n'.join(f"- {'[x]' if checked else '[ ]'} {text}" for checked, text in general_todos)}
 </details>'''
         sections.append(section)
         print(f"\nProcessing category: General")
-        print(f"Items in category: {len(general_todos)}")
+        print(f"Items in category: {total} (Completed: {completed})")
     
     # Process other categories
     for category_lower, data in categorized.items():
@@ -350,8 +352,10 @@ def create_todo_section(todos):
             continue
             
         category = data['name']
+        completed = sum(1 for checked, _ in data['todos'] if checked)
+        total = len(data['todos'])
         print(f"\nProcessing category: {category}")
-        print(f"Items in category: {len(data['todos'])}")
+        print(f"Items in category: {total} (Completed: {completed})")
         
         todo_lines = []
         for checked, text in data['todos']:
@@ -360,7 +364,7 @@ def create_todo_section(todos):
             print(f"Added todo line: {text}")
         
         section = f'''<details>
-<summary>📑 {category}</summary>
+<summary>📑 {category} ({completed}/{total})</summary>
 
 {'\n'.join(todo_lines)}
 </details>'''
@@ -538,11 +542,6 @@ def create_issue_from_todo(repo, todo_text, category, parent_issue_number=None):
     # Remove '(issue)' prefix and strip whitespace
     title = todo_text.replace('(issue)', '', 1).strip()
     
-    # Check if this is a sub-issue
-    is_sub_issue = todo_text.strip().startswith('(sub)')
-    if is_sub_issue:
-        title = title.replace('(sub)', '', 1).strip()
-    
     # Create issue title with category
     issue_title = f"[{category}] {title}"
     
@@ -554,19 +553,11 @@ def create_issue_from_todo(repo, todo_text, category, parent_issue_number=None):
 {category}
 
 ## 🔗 References
+- Created from Daily Log: #{parent_issue_number}
 """
-    
-    if parent_issue_number:
-        if is_sub_issue:
-            body += f"- Sub-issue of: #{parent_issue_number}\n"
-            body += f"- Created from Daily Log: #{parent_issue_number}"
-        else:
-            body += f"- Created from Daily Log: #{parent_issue_number}"
     
     # Create labels
     labels = ['todo-generated', f'category:{category}']
-    if is_sub_issue:
-        labels.append('sub-issue')
     
     try:
         new_issue = repo.create_issue(
@@ -574,19 +565,16 @@ def create_issue_from_todo(repo, todo_text, category, parent_issue_number=None):
             body=body,
             labels=labels
         )
-        print(f"Created new {'sub-' if is_sub_issue else ''}issue #{new_issue.number}: {issue_title}")
+        print(f"Created new issue #{new_issue.number}: {issue_title}")
         
         # Add reference comment to the parent issue
         if parent_issue_number:
             parent_issue = repo.get_issue(parent_issue_number)
-            if is_sub_issue:
-                parent_issue.create_comment(f"Created sub-issue #{new_issue.number} from todo item")
-            else:
-                parent_issue.create_comment(f"Created issue #{new_issue.number} from todo item")
+            parent_issue.create_comment(f"Created issue #{new_issue.number} from todo item")
         
         return new_issue
     except Exception as e:
-        print(f"Failed to create {'sub-' if is_sub_issue else ''}issue for todo: {title}")
+        print(f"Failed to create issue for todo: {title}")
         print(f"Error: {str(e)}")
         return None
 
@@ -733,7 +721,7 @@ def main():
         commit_details = create_commit_section(
             commit_data,
             branch,
-            commit_to_process.sha[:7],  # Use first 7 characters of commit SHA without quotes
+            commit_to_process.sha,
             commit_to_process.commit.author.name,
             time_string,
             repo
