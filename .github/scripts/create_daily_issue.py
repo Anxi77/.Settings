@@ -150,7 +150,7 @@ def create_commit_section(commit_data, branch, commit_sha, author, time_string, 
     for issue_num in issue_numbers:
         try:
             issue = repo.get_issue(int(issue_num))
-            issue.create_comment(f"Referenced in commit: `{commit_sha}`\n\nCommit message:\n```\n{commit_data['title']}\n```")
+            issue.create_comment(f"Referenced in commit {commit_sha}\n\nCommit message:\n```\n{commit_data['title']}\n```")
             related_issues.append(f"Related to #{issue_num}")
         except Exception as e:
             print(f"Failed to add comment to issue #{issue_num}: {str(e)}")
@@ -163,7 +163,7 @@ def create_commit_section(commit_data, branch, commit_sha, author, time_string, 
 > <summary>💫 {time_string} - {commit_data['title'].strip()}</summary>
 >
 > Type: {commit_data['type']} ({commit_data['type_info']['description']})
-> Commit: `{commit_sha}`
+> Commit: {commit_sha}
 > Author: {author}
 >
 {quoted_body}
@@ -717,7 +717,7 @@ def main():
         commit_details = create_commit_section(
             commit_data,
             branch,
-            commit_to_process.sha,
+            commit_to_process.sha[:7],  # Use first 7 characters of commit SHA without quotes
             commit_to_process.commit.author.name,
             time_string,
             repo
