@@ -538,6 +538,11 @@ def create_issue_from_todo(repo, todo_text, category, parent_issue_number=None):
     # Remove '(issue)' prefix and strip whitespace
     title = todo_text.replace('(issue)', '', 1).strip()
     
+    # Check if this is a sub-issue
+    is_sub_issue = todo_text.strip().startswith('(sub)')
+    if is_sub_issue:
+        title = title.replace('(sub)', '', 1).strip()
+    
     # Create issue title with category
     issue_title = f"[{category}] {title}"
     
@@ -549,11 +554,19 @@ def create_issue_from_todo(repo, todo_text, category, parent_issue_number=None):
 {category}
 
 ## 🔗 References
-- Created from Daily Log: #{parent_issue_number}
 """
+    
+    if parent_issue_number:
+        if is_sub_issue:
+            body += f"- Sub-issue of: #{parent_issue_number}\n"
+            body += f"- Created from Daily Log: #{parent_issue_number}"
+        else:
+            body += f"- Created from Daily Log: #{parent_issue_number}"
     
     # Create labels
     labels = ['todo-generated', f'category:{category}']
+    if is_sub_issue:
+        labels.append('sub-issue')
     
     try:
         new_issue = repo.create_issue(
@@ -561,16 +574,19 @@ def create_issue_from_todo(repo, todo_text, category, parent_issue_number=None):
             body=body,
             labels=labels
         )
-        print(f"Created new issue #{new_issue.number}: {issue_title}")
+        print(f"Created new {'sub-' if is_sub_issue else ''}issue #{new_issue.number}: {issue_title}")
         
         # Add reference comment to the parent issue
         if parent_issue_number:
             parent_issue = repo.get_issue(parent_issue_number)
-            parent_issue.create_comment(f"Created issue #{new_issue.number} from todo item")
+            if is_sub_issue:
+                parent_issue.create_comment(f"Created sub-issue #{new_issue.number} from todo item")
+            else:
+                parent_issue.create_comment(f"Created issue #{new_issue.number} from todo item")
         
         return new_issue
     except Exception as e:
-        print(f"Failed to create issue for todo: {title}")
+        print(f"Failed to create {'sub-' if is_sub_issue else ''}issue for todo: {title}")
         print(f"Error: {str(e)}")
         return None
 
