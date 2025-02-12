@@ -359,33 +359,29 @@ def convert_to_checkbox_list(text):
     print("\n=== Converting to Checkbox List ===")
     print(f"Input text:\n{text}")
     
-    categories = parse_categorized_todos(text)
     lines = []
+    current_category = None
     
-    # Find uncategorized items first
-    uncategorized = [line.strip()[2:] for line in text.split('\n') 
-                    if line.strip().startswith(('-', '*')) 
-                    and not any(line.strip() in todos for todos in categories.values())]
-    
-    # Always process General category first
-    if 'General' in categories or uncategorized:
-        lines.append('@General')  # Add General category marker
-        if 'General' in categories:
-            lines.extend(f'- {todo}' for todo in categories['General'])
-        if uncategorized:
-            lines.extend(f'- {todo}' for todo in uncategorized)
-    
-    # Process other categories in order, preserving original case
-    for category, todos in categories.items():
-        if category == 'General':
+    # Process each line
+    for line in text.strip().split('\n'):
+        line = line.strip()
+        if not line:
             continue
             
-        # Preserve the original category case from the commit message
-        original_case = next((line[1:].strip() for line in text.split('\n') 
-                          if line.strip().startswith('@') 
-                          and line[1:].strip().lower() == category.lower()), category)
-        lines.append(f'@{original_case}')  # add category marker with original case
-        lines.extend(f'- {todo}' for todo in todos)
+        if line.startswith('@'):
+            current_category = line
+            lines.append(current_category)
+            print(f"Found category: {current_category}")
+        elif line.startswith(('-', '*')):
+            if current_category is None:
+                if not any(l.startswith('@General') for l in lines):
+                    lines.insert(0, '@General')
+                    current_category = '@General'
+                    print("Created General category for uncategorized items")
+            
+            todo_text = line[1:].strip()
+            lines.append(f"- {todo_text}")
+            print(f"Added todo item to {current_category}: {todo_text}")
     
     result = '\n'.join(lines)
     print(f"\nConverted result:\n{result}")
