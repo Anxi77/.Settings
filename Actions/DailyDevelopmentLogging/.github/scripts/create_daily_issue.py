@@ -21,11 +21,6 @@ def is_merge_commit_message(message):
 
 def parse_commit_message(message):
     """Parse commit message"""
-    # Skip merge commits
-    if is_merge_commit_message(message):
-        print(f"Skipping merge commit message: {message.split('\n')[0]}")
-        return None
-        
     pattern = r'(?i)\[(.*?)\] (.*?)(?:\s*\n\s*\[body\](.*?))?(?:\s*\n\s*\[todo\](.*?))?(?:\s*\n\s*\[footer\](.*?))?$'
     match = re.search(pattern, message, re.DOTALL | re.IGNORECASE)
     if not match:
@@ -136,12 +131,16 @@ def parse_categorized_todos(text):
 
 def create_commit_section(commit_data, branch, commit_sha, author, time_string):
     """Create commit section with details tag"""
+    # Handle None values in commit data
+    body = commit_data.get('body', '').strip() if commit_data.get('body') else ''
+    footer = commit_data.get('footer', '').strip() if commit_data.get('footer') else ''
+    
     # Apply blockquote to each line of the body
-    body_lines = [f"> {line}" for line in commit_data['body'].strip().split('\n')]
+    body_lines = [f"> {line}" for line in body.split('\n')] if body else []
     quoted_body = '\n'.join(body_lines)
     
     # Apply blockquote to related issues if they exist
-    related_issues = f"\n> **Related Issues:**\n> {commit_data['footer'].strip()}" if commit_data['footer'] else ''
+    related_issues = f"\n> **Related Issues:**\n> {footer}" if footer else ''
     
     section = f'''> <details>
 > <summary>💫 {time_string} - {commit_data['title'].strip()}</summary>
@@ -502,6 +501,21 @@ def get_merge_commits(repo, merge_commit):
         print(f"Error message: {str(e)}")
         return []
 
+def get_commit_summary(commit):
+    """Get a formatted commit summary"""
+    sha = commit.sha[:7]
+    msg = commit.commit.message.strip().split('\n')[0]
+    return f"[{sha}] {msg}"
+
+def log_commit_status(commit, status, extra_info=''):
+    """Log commit status with consistent format"""
+    summary = get_commit_summary(commit)
+    print(f"{status}: {summary}{' - ' + extra_info if extra_info else ''}")
+
+def is_daily_log_issue(issue_title):
+    """Check if an issue is a daily log"""
+    return issue_title.startswith('📅 Daily Development Log')
+
 def main():
     # Initialize GitHub token and environment variables
     github_token = os.environ['GITHUB_TOKEN']
@@ -555,9 +569,8 @@ def main():
 
     # find previous issues
     for issue in issues:
-        if issue != today_issue and issue.title.startswith('📅 Daily Development Log'):
+        if issue != today_issue and is_daily_log_issue(issue.title):
             print(f"\n=== Processing Previous Issue #{issue.number} ===")
-
             prev_content = parse_existing_issue(issue.body)
             unchecked_todos = [(False, todo[1]) for todo in prev_content['todos'] if not todo[0]]
             if unchecked_todos:
@@ -568,24 +581,28 @@ def main():
             issue.edit(state='closed')
             print(f"Closed previous issue #{issue.number}")
 
-    # process commits which are not logged in the issue
+    # process commits
+    print("\n=== Filtering commits ===")
     filtered_commits = []
     seen_messages = set()
     
-    print("\n=== Filtering commits ===")
     for commit_to_process in commits_to_process:
         msg = commit_to_process.commit.message.strip()
-        # skip merge commit messages
+        
         if is_merge_commit_message(msg):
-            print(f"Skipping merge commit: [{commit_to_process.sha[:7]}] {msg.split('\n')[0]}")
+            log_commit_status(commit_to_process, "Skipping merge commit")
+            if len(commit_to_process.parents) == 2:
+                print("Processing child commits from merge...")
+                child_commits = get_merge_commits(repo, commit_to_process)
+                commits_to_process.extend(child_commits)
             continue
             
         if msg not in seen_messages and not is_commit_already_logged(msg, existing_content):
             seen_messages.add(msg)
             filtered_commits.append(commit_to_process)
-            print(f"Adding commit: [{commit_to_process.sha[:7]}] {msg.split('\n')[0]}")
+            log_commit_status(commit_to_process, "Adding commit")
         else:
-            print(f"Skipping duplicate commit: [{commit_to_process.sha[:7]}] {msg.split('\n')[0]}")
+            log_commit_status(commit_to_process, "Skipping duplicate commit")
     
     commits_to_process = filtered_commits
     
