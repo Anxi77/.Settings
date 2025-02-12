@@ -88,7 +88,7 @@ def parse_categorized_todos(text):
     
     categories = {}
     category_manager = CategoryManager()
-    has_uncategorized_items = False
+    current_category = 'General'
     
     for line in text.strip().split('\n'):
         line = line.strip()
@@ -98,34 +98,19 @@ def parse_categorized_todos(text):
         print(f"Processing line: {line}")
         
         if line.startswith('@'):
-            category = line[1:].strip()
-            category = category_manager.add_category(category)
-            category_manager.set_current(category)
-            print(f"Found category: {category}")
+            current_category = line[1:].strip()
+            if current_category not in categories:
+                categories[current_category] = []
+            print(f"Found category: {current_category}")
             continue
             
         if line.startswith(('-', '*')):
-            category = category_manager.current
-            if category not in categories:
-                categories[category] = []
+            if current_category not in categories:
+                categories[current_category] = []
             
             item = line[1:].strip()
-            categories[category].append(item)
-            print(f"Added todo item to {category}: {item}")
-            
-            # Mark if we have items without explicit category
-            if category == 'General':
-                has_uncategorized_items = True
-    
-    # Ensure General category exists if we have uncategorized items
-    if has_uncategorized_items and 'General' not in categories:
-        categories['General'] = []
-    
-    print("\nParsed categories:")
-    for category, items in categories.items():
-        print(f"{category}: {len(items)} items")
-        for item in items:
-            print(f"  - {item}")
+            categories[current_category].append(item)
+            print(f"Added todo item to {current_category}: {item}")
     
     return categories
 
