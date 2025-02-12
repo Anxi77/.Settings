@@ -120,21 +120,44 @@ def create_commit_section(commit_data, branch, commit_sha, author, time_string, 
     body = commit_data.get('body', '').strip() if commit_data.get('body') else ''
     footer = commit_data.get('footer', '').strip() if commit_data.get('footer') else ''
     
-    # Apply blockquote to each line of the body
-    body_lines = [f"> {line}" for line in body.split('\n')] if body else []
+    # Format body with bullet points
+    body_lines = []
+    if body:
+        for line in body.split('\n'):
+            line = line.strip()
+            if line:
+                body_lines.append(f"> • {line}")
     quoted_body = '\n'.join(body_lines)
     
     # Extract issue numbers from entire commit message
     full_message = f"{commit_data['title']}\n{body}\n{footer}"
-    issue_numbers = set(re.findall(r'#(\d+)', full_message))  # 중복 제거를 위해 set 사용
+    issue_numbers = set(re.findall(r'#(\d+)', full_message))
     
-    # Add comments to referenced issues
+    # Add comments to referenced issues and prepare related issues section
+    related_issues = []
+    
+    # Always add reference to current daily log
+    try:
+        issues = repo.get_issues(state='open', labels=['daily-log'])
+        for issue in issues:
+            if issue.title.startswith('📅 Daily Development Log'):
+                related_issues.append(f"Daily Development Log: #{issue.number}")
+                break
+    except Exception as e:
+        print(f"Failed to find current daily log issue: {str(e)}")
+    
+    # Process other referenced issues
     for issue_num in issue_numbers:
         try:
             issue = repo.get_issue(int(issue_num))
             issue.create_comment(f"Referenced in commit: `{commit_sha}`\n\nCommit message:\n```\n{commit_data['title']}\n```")
+            related_issues.append(f"Related to #{issue_num}")
         except Exception as e:
             print(f"Failed to add comment to issue #{issue_num}: {str(e)}")
+    
+    # Add related issues section
+    if related_issues:
+        quoted_body += "\n> \n> Related Issues:\n> " + "\n> ".join(related_issues)
     
     section = f'''> <details>
 > <summary>💫 {time_string} - {commit_data['title'].strip()}</summary>
