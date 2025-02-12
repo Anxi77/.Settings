@@ -332,6 +332,7 @@ def create_todo_section(todos):
     
     # process categorized todos
     sections = []
+    processed_categories = set()  # Track processed categories
     
     # Add General category first if it has items
     if general_todos:
@@ -343,12 +344,13 @@ def create_todo_section(todos):
 {'\n'.join(f"- {'[x]' if checked else '[ ]'} {text}" for checked, text in general_todos)}
 </details>'''
         sections.append(section)
+        processed_categories.add('general')
         print(f"\nProcessing category: General")
         print(f"Items in category: {total} (Completed: {completed})")
     
     # Process other categories
     for category_lower, data in categorized.items():
-        if not data['todos']:  # skip empty categories
+        if not data['todos'] or category_lower in processed_categories:  # Skip empty or already processed categories
             continue
             
         category = data['name']
@@ -369,6 +371,7 @@ def create_todo_section(todos):
 {'\n'.join(todo_lines)}
 </details>'''
         sections.append(section)
+        processed_categories.add(category_lower)
         print(f"Created details section for {category}")
     
     # Add extra newline between sections for better readability
