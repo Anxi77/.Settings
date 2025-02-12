@@ -236,38 +236,44 @@ def merge_todos(existing_todos, new_todos):
     result = []
     todo_map = {}
     category_manager = CategoryManager()
+    processed_categories = set()  # Track processed categories
     
     # Process existing todos
     current_category = 'General'  # Set default category as General
     for checked, text in existing_todos:
         if text.startswith('@'):
             current_category = text[1:].strip()
-            result.append((False, f"@{current_category}"))
+            if current_category.lower() not in processed_categories:  # Only add if not processed
+                result.append((False, f"@{current_category}"))
+                processed_categories.add(current_category.lower())
             continue
             
         todo_map[text] = len(result)
         result.append((checked, text))
     
     # Process new todos
-    # Add General category if there are uncategorized items
-    if not any(t[1].startswith('@') for t in new_todos):
+    # Add General category if there are uncategorized items and not already added
+    if not any(t[1].startswith('@') for t in new_todos) and 'general' not in processed_categories:
         result.insert(0, (False, "@General"))
+        processed_categories.add('general')
         
     for checked, text in new_todos:
         if text.startswith('@'):
             current_category = text[1:].strip()
             # Add category marker if not exists
-            if not any(t[1] == f"@{current_category}" for t in result):
+            if current_category.lower() not in processed_categories:
                 result.append((False, f"@{current_category}"))
+                processed_categories.add(current_category.lower())
             continue
             
-        # Add General category marker for uncategorized items
-        if current_category == 'General' and not any(t[1] == "@General" for t in result):
+        # Add General category marker for uncategorized items if not already added
+        if current_category == 'General' and 'general' not in processed_categories:
             result.insert(0, (False, "@General"))
+            processed_categories.add('general')
             
         # Find the appropriate category section
         category_index = next((i for i, (_, t) in enumerate(result) 
-                            if t == f"@{current_category}"), None)
+                            if t.startswith('@') and t[1:].strip().lower() == current_category.lower()), None)
         
         if category_index is not None:
             # Find the next category marker or end of list
