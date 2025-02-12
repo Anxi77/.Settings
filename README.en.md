@@ -19,6 +19,8 @@ This repository contains various presets for development environment configurati
 - ✅ TODO item tracking
 - 🔄 Previous TODO migration
 - 📑 Categorized TODO management with @category syntax
+- 📊 Automatic category statistics (e.g., General (5/10))
+- 🎯 Automatic issue creation with (issue) prefix
 - 🔠 Case-insensitive category handling
 - 📋 Automatic General category for uncategorized items
 
