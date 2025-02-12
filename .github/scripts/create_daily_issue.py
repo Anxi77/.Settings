@@ -129,7 +129,7 @@ def parse_categorized_todos(text):
     
     return categories
 
-def create_commit_section(commit_data, branch, commit_sha, author, time_string):
+def create_commit_section(commit_data, branch, commit_sha, author, time_string, repo):
     """Create commit section with details tag"""
     # Handle None values in commit data
     body = commit_data.get('body', '').strip() if commit_data.get('body') else ''
@@ -139,8 +139,17 @@ def create_commit_section(commit_data, branch, commit_sha, author, time_string):
     body_lines = [f"> {line}" for line in body.split('\n')] if body else []
     quoted_body = '\n'.join(body_lines)
     
-    # Apply blockquote to related issues if they exist
-    related_issues = f"\n> **Related Issues:**\n> {footer}" if footer else ''
+    # Extract issue numbers from entire commit message
+    full_message = f"{commit_data['title']}\n{body}\n{footer}"
+    issue_numbers = set(re.findall(r'#(\d+)', full_message))  # 중복 제거를 위해 set 사용
+    
+    # Add comments to referenced issues
+    for issue_num in issue_numbers:
+        try:
+            issue = repo.get_issue(int(issue_num))
+            issue.create_comment(f"Referenced in commit: `{commit_sha}`\n\nCommit message:\n```\n{commit_data['title']}\n```")
+        except Exception as e:
+            print(f"Failed to add comment to issue #{issue_num}: {str(e)}")
     
     section = f'''> <details>
 > <summary>💫 {time_string} - {commit_data['title'].strip()}</summary>
@@ -149,7 +158,7 @@ def create_commit_section(commit_data, branch, commit_sha, author, time_string):
 > Commit: `{commit_sha}`
 > Author: {author}
 >
-{quoted_body}{related_issues}
+{quoted_body}
 > </details>'''
     return section
 
@@ -516,6 +525,75 @@ def is_daily_log_issue(issue_title):
     """Check if an issue is a daily log"""
     return issue_title.startswith('📅 Daily Development Log')
 
+def is_issue_todo(todo_text):
+    """Check if todo item should be created as an issue"""
+    return todo_text.strip().startswith('(issue)')
+
+def create_issue_from_todo(repo, todo_text, category, parent_issue_number=None):
+    """Create a new issue from todo item"""
+    # Remove '(issue)' prefix and strip whitespace
+    title = todo_text.replace('(issue)', '', 1).strip()
+    
+    # Create issue title with category
+    issue_title = f"[{category}] {title}"
+    
+    # Create issue body with daily log reference
+    body = f"""## 📌 Task Description
+{title}
+
+## 🏷 Category
+{category}
+
+## 🔗 References
+- Created from Daily Log: #{parent_issue_number}
+"""
+    
+    # Create labels
+    labels = ['todo-generated', f'category:{category}']
+    
+    try:
+        new_issue = repo.create_issue(
+            title=issue_title,
+            body=body,
+            labels=labels
+        )
+        print(f"Created new issue #{new_issue.number}: {issue_title}")
+        
+        # Add reference comment to the parent issue
+        if parent_issue_number:
+            parent_issue = repo.get_issue(parent_issue_number)
+            parent_issue.create_comment(f"Created issue #{new_issue.number} from todo item")
+        
+        return new_issue
+    except Exception as e:
+        print(f"Failed to create issue for todo: {title}")
+        print(f"Error: {str(e)}")
+        return None
+
+def process_todo_items(repo, todos, parent_issue_number):
+    """Process todo items and create issues for marked items"""
+    processed_todos = []
+    created_issues = []
+    
+    current_category = 'General'
+    for checked, text in todos:
+        if text.startswith('@'):
+            current_category = text[1:].strip()
+            processed_todos.append((checked, text))
+            continue
+            
+        if is_issue_todo(text):
+            # Create new issue
+            new_issue = create_issue_from_todo(repo, text, current_category, parent_issue_number)
+            if new_issue:
+                created_issues.append(new_issue)
+                # Add only the issue number as a todo item
+                processed_todos.append((checked, f"#{new_issue.number}"))
+        else:
+            processed_todos.append((checked, text))
+    
+    return processed_todos, created_issues
+
 def main():
     # Initialize GitHub token and environment variables
     github_token = os.environ['GITHUB_TOKEN']
@@ -637,7 +715,8 @@ def main():
             branch,
             commit_to_process.sha,
             commit_to_process.commit.author.name,
-            time_string
+            time_string,
+            repo
         )
 
         # Create todo section and merge with previous todos
@@ -680,10 +759,17 @@ def main():
                     print(f"⬜ {todo_text}")
                 all_todos = merge_todos(all_todos, previous_todos)
             
-            print(f"\n=== Final Result ===")
-            print(f"Total TODOs: {len(all_todos)} items")
+            # Process todos and create issues for marked items
+            processed_todos, created_issues = process_todo_items(repo, all_todos, today_issue.number)
             
-            # Create updated body
+            print(f"\n=== Created {len(created_issues)} new issues from todos ===")
+            for issue in created_issues:
+                print(f"#{issue.number}: {issue.title}")
+            
+            print(f"\n=== Final Result ===")
+            print(f"Total TODOs: {len(processed_todos)} items")
+            
+            # Create updated body with processed todos
             branch_sections = []
             for branch_name, branch_content in existing_content['branches'].items():
                 branch_sections.append(f'''<details>
@@ -708,7 +794,7 @@ def main():
 
 </div>
 
-{create_todo_section(all_todos)}'''
+{create_todo_section(processed_todos)}'''
             
             today_issue.edit(body=updated_body)
             print(f"Updated issue #{today_issue.number}")
