@@ -216,10 +216,12 @@ def parse_existing_issue(body):
                 if '</details>' in line:
                     continue
                     
-                # process category header
+                # process category header - extract only category name, ignore statistics
                 if '<summary>📑' in line:
-                    current_category = line.split('📑')[1].split('</summary>')[0].strip()
-                    result['todos'].append((False, f"@{current_category}"))
+                    category_match = re.match(r'<summary>📑\s*([^(]+)', line)
+                    if category_match:
+                        current_category = category_match.group(1).strip()
+                        result['todos'].append((False, f"@{current_category}"))
                     continue
                 
                 # process todo items
