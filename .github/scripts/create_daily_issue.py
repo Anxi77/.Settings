@@ -518,7 +518,7 @@ def get_merge_commits(repo, merge_commit):
         for commit_list in [commits1, commits2]:
             for commit in commit_list:
                 msg = commit.commit.message.strip()
-                if not is_merge_commit_message(msg) and msg not in seen_messages:  # 머지 커밋 제외
+                if not is_merge_commit_message(msg) and msg not in seen_messages:  # Exclude merge commits
                     seen_messages.add(msg)
                     unique_commits.append(commit)
         
