@@ -205,7 +205,11 @@ External 폴더에 임포트 후 압축하여 드라이브 업로드
 
 할일 목록 상세 설명
 
+@할일 카테고리
+
 &nbsp;- 실제 태스크
+
+&nbsp;- (issue)실제 태스크
 <br></br>
 [Footer]
 
@@ -283,71 +287,94 @@ Closes #128
 <summary><h1>📋 Daily Development Log 액션 사용 설명서</h1></summary>
 <div align="center">
 
-### 📌 개요
+## 📌 개요
 
-일일 개발 로그를 자동으로 생성하고 관리하는 GitHub 액션입니다.  
-브랜치별 작업 내역과 TODO 항목을 체계적으로 관리할 수 있습니다.
+이 GitHub 액션은 커밋 메시지를 기반으로 일일 개발 로그를 자동으로 생성하고 관리합니다. 브랜치별 작업 내역과 TODO 항목을 체계적으로 관리할 수 있습니다.
 
-━━━━━━━━━━━━━━━━━━━━━━
+## 🔧 주요 기능
 
-### 🔧 주요 기능
+### ✨ 일일 개발 로그 자동 생성
 
-#### • 일일 개발 로그 자동 생성
+&nbsp;&nbsp;&nbsp;• 당일 날짜의 개발 로그 이슈 자동 생성<br>
+&nbsp;&nbsp;&nbsp;• 브랜치별 커밋 내역 정리<br>
+&nbsp;&nbsp;&nbsp;• TODO 항목 관리<br>
 
-&nbsp;- 당일 날짜의 개발 로그 이슈 자동 생성  
-&nbsp;- 브랜치별 커밋 내역 정리  
-&nbsp;- TODO 항목 관리
+### 🌿 브랜치 관리
 
-#### • 브랜치 관리
+&nbsp;&nbsp;&nbsp;• 브랜치별 커밋 히스토리 누적<br>
+&nbsp;&nbsp;&nbsp;• 커밋 상세 정보 (시간, 작성자, 타입) 표시<br>
+&nbsp;&nbsp;&nbsp;• 관련 이슈 연결<br>
 
-&nbsp;- 브랜치별 커밋 히스토리 누적  
-&nbsp;- 커밋 상세 정보 (시간, 작성자, 타입) 표시  
-&nbsp;- 관련 이슈 연결
+### 📝 TODO 관리
 
-#### • TODO 관리
+&nbsp;&nbsp;&nbsp;• 체크박스 형식의 TODO 항목 관리<br>
+&nbsp;&nbsp;&nbsp;• 이전 날짜의 미완료 TODO 자동 이전<br>
+&nbsp;&nbsp;&nbsp;• TODO 상태 (완료/미완료) 보존<br>
+&nbsp;&nbsp;&nbsp;• 중복 TODO 처리<br>
+&nbsp;&nbsp;&nbsp;• @카테고리 문법으로 TODO 항목 분류<br>
+&nbsp;&nbsp;&nbsp;• 대소문자 구분 없는 카테고리 처리<br>
+&nbsp;&nbsp;&nbsp;• 미분류 항목을 위한 General 카테고리 자동 생성<br>
+&nbsp;&nbsp;&nbsp;• 카테고리별 완료/전체 통계 자동 생성 (예: Combat (2/5))<br>
+&nbsp;&nbsp;&nbsp;• (issue) 접두사로 할일 항목 자동 이슈화<br>
 
-&nbsp;- 체크박스 형식의 TODO 항목 관리  
-&nbsp;- 이전 날짜의 미완료 TODO 자동 이전  
-&nbsp;- TODO 상태 (완료/미완료) 보존  
-&nbsp;- 중복 TODO 처리
+### 💫 카테고리 기능 사용법
 
-━━━━━━━━━━━━━━━━━━━━━━
-
-### 💫 커밋 메시지 작성 방법
-
-#### • 기본 형식
-
-```
-[type] 제목
-
-[Body]
-상세 내용을 작성합니다.
-여러 줄로 작성 가능합니다.
-
+```markdown
 [Todo]
-- 새로운 TODO 항목 1
-- 새로운 TODO 항목 2
+@Combat
 
-[Footer]
-#관련-이슈 #태그
+- 몬스터 전투 시스템 구현
+- 플레이어 공격 패턴 추가
+- (issue) 보스 AI 패턴 최적화 필요
+
+@UI
+
+- 전투 UI 레이아웃 디자인
+- 데미지 표시 효과 구현
+
+@Sound
+
+- 전투 효과음 추가
+- BGM 전환 시스템 구현
+
+- 버그 수정 및 테스트 (자동으로 General 카테고리로 분류)
 ```
 
-#### • 커밋 타입 종류
+### 📑 카테고리 표시 형식
 
-&nbsp;- `feat`: ✨ 새로운 기능  
-&nbsp;- `fix`: 🐛 버그 수정  
-&nbsp;- `refactor`: ♻️ 코드 리팩토링  
-&nbsp;- `docs`: 📝 문서 수정  
-&nbsp;- `test`: ✅ 테스트 코드  
-&nbsp;- `chore`: 🔧 빌드/설정 변경  
-&nbsp;- `style`: 💄 코드 스타일 변경  
-&nbsp;- `perf`: ⚡️ 성능 개선
+```markdown
+<details>
+<summary>📑 General (0/1)</summary>
+- [ ] 버그 수정 및 테스트
+</details>
 
-━━━━━━━━━━━━━━━━━━━━━━
+<details>
+<summary>📑 Combat (1/3)</summary>
+- [ ] 몬스터 전투 시스템 구현
+- [x] 플레이어 공격 패턴 추가
+- [ ] #123 (자동 생성된 보스 AI 이슈)
+</details>
 
-### ⚙️ 환경 설정
+<details>
+<summary>📑 UI (0/2)</summary>
+- [ ] 전투 UI 레이아웃 디자인
+- [ ] 데미지 표시 효과 구현
+</details>
+```
 
-`.github/workflows/create-issue-from-commit.yml` 파일에서 설정 가능:
+### ✨ 카테고리 기능 특징
+
+&nbsp;&nbsp;&nbsp;• `@카테고리명`으로 새 카테고리 생성 또는 전환<br>
+&nbsp;&nbsp;&nbsp;• 대소문자 구분 없이 동일 카테고리로 처리 (@COMBAT = @Combat)<br>
+&nbsp;&nbsp;&nbsp;• 원본 카테고리의 대소문자는 표시에서 유지<br>
+&nbsp;&nbsp;&nbsp;• 카테고리 없는 항목은 자동으로 General에 포함<br>
+&nbsp;&nbsp;&nbsp;• 카테고리별로 접었다 펼 수 있는 details 태그로 정리<br>
+&nbsp;&nbsp;&nbsp;• 각 카테고리의 진행 상황이 (완료/전체) 형식으로 표시<br>
+&nbsp;&nbsp;&nbsp;• `(issue)` 접두사가 붙은 항목은 자동으로 이슈로 생성되고 번호로 대체<br>
+
+## ⚙️ 환경 설정
+
+`.github/workflows/create-issue-from-commit.yml` 파일에서 다음 설정을 변경할 수 있습니다:
 
 ```yaml
 env:
@@ -357,18 +384,37 @@ env:
   EXCLUDED_COMMITS: "^(chore|docs|style):" # 제외할 커밋 타입
 ```
 
-━━━━━━━━━━━━━━━━━━━━━━
+## 📋 자동 생성되는 이슈 형식
 
-### ⚠️ 주의사항
+```markdown
+# 📅 Daily Development Log (YYYY-MM-DD) - Repository Name
 
-#### • 커밋 메시지 작성 시
+<div align="center">
 
-&nbsp;- 커밋 메시지 형식을 정확히 지켜주세요  
-&nbsp;- TODO 항목은 `-` 또는 `*`로 시작해야 합니다  
-&nbsp;- 이전 날짜의 이슈는 자동으로 닫힙니다  
-&nbsp;- `chore`, `docs`, `style` 타입의 커밋은 기본적으로 제외됩니다
+## 📊 Branch Summary
 
-━━━━━━━━━━━━━━━━━━━━━━
+</div>
+
+<details>
+<summary><h3>✨ Branch Name</h3></summary>
+커밋 상세 내용
+</details>
+
+<div align="center">
+
+## 📝 Todo
+
+</div>
+
+- [ ] TODO 항목 1
+- [x] TODO 항목 2 (완료됨)
+```
+
+## ⚠️ 주의사항
+
+&nbsp;&nbsp;&nbsp;1. 커밋 메시지 형식을 정확히 지켜주세요.<br>
+&nbsp;&nbsp;&nbsp;2. TODO 항목은 `-`로 시작해야 합니다.<br>
+&nbsp;&nbsp;&nbsp;3. 이전 날짜의 이슈는 자동으로 닫힙니다.<br>
 
 </div>
 </details>

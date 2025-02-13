@@ -109,7 +109,7 @@ Unity 개발 환경 구성:
 [OpenGL](https://github.com/Anxi77/.Settings/tree/main/OpenGL) •
 [Unity](https://github.com/Anxi77/.Settings/tree/main/Unity) •
 [VSCode](https://github.com/Anxi77/.Settings/tree/main/VSCode) •
-[ReadmeTemplates](https://github.com/Anxi77/.Settings/tree/main/Readme) •
+[ReadmeTemplates](https://github.com/Anxi77/.Settings/tree/main/Documents) •
 [BaekjoonLogging](https://github.com/Anxi77/.Settings/tree/main/Actions/BaekjoonLogging) •
 [DailyDevelopmentLogging](https://github.com/Anxi77/.Settings/tree/main/Actions/DailyDevelopmentLogging)
 

@@ -103,7 +103,7 @@ Pull requests are welcome if you'd like to suggest new configurations or improve
 [OpenGL](https://github.com/Anxi77/.Settings/tree/main/OpenGL) •
 [Unity](https://github.com/Anxi77/.Settings/tree/main/Unity) •
 [VSCode](https://github.com/Anxi77/.Settings/tree/main/VSCode) •
-[ReadmeTemplates](https://github.com/Anxi77/.Settings/tree/main/Readme) •
+[ReadmeTemplates](https://github.com/Anxi77/.Settings/tree/main/Documents) •
 [DailyDevelopmentLogging](https://github.com/Anxi77/.Settings/tree/main/Actions/DailyDevelopmentLogging)
 
 </div>
