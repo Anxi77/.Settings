@@ -511,14 +511,14 @@ def get_merge_commits(repo, merge_commit):
         for c in commits2:
             print(f"- [{c.sha[:7]}] {c.commit.message.split('\n')[0]}")
         
-        # remove duplicate commits
+        # remove duplicate commits and merge commits
         unique_commits = []
         seen_messages = set()
         
         for commit_list in [commits1, commits2]:
             for commit in commit_list:
                 msg = commit.commit.message.strip()
-                if msg not in seen_messages:
+                if not is_merge_commit_message(msg) and msg not in seen_messages:  # 머지 커밋 제외
                     seen_messages.add(msg)
                     unique_commits.append(commit)
         
