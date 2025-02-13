@@ -379,7 +379,7 @@ def create_todo_section(todos):
         section = f'''<details>
 <summary>📑 {category} ({completed}/{total})</summary>
 
-{'\n'.join(f"- {'[x]' if checked else '[ ]'} {text}" for checked, text in todo_lines)}
+{'\n'.join(todo_lines)}
 
 ⚫
 </details>'''
