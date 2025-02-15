@@ -11,9 +11,15 @@ def find_report_issue(repo, project_name):
             return issue
     return None
 
+def get_assignees_string(issue):
+    """이슈의 담당자 목록을 문자열로 반환합니다."""
+    return ', '.join([assignee.login for assignee in issue.assignees]) if issue.assignees else 'TBD'
+
 def create_report_body(proposal_issue):
     """태스크 보고서 템플릿으로 변환합니다."""
     project_name = proposal_issue.title.replace('태스크 제안: ', '')
+    assignees = get_assignees_string(proposal_issue)
+    
     return f"""<div align="center">
 
 ![header](https://capsule-render.vercel.app/api?type=transparent&color=39FF14&height=150&section=header&text=Task%20Report&fontSize=50&animation=fadeIn&fontColor=39FF14&desc=프로젝트%20태스크%20관리%20보고서&descSize=25&descAlignY=75)
@@ -27,6 +33,7 @@ def create_report_body(proposal_issue):
 **보고서 작성일**: {datetime.now().strftime('%Y-%m-%d')}  
 **프로젝트명**: {project_name}  
 **작성자**: {proposal_issue.user.login}  
+**담당자**: {assignees}  
 **보고 기간**: {datetime.now().strftime('%Y-%m-%d')} ~ 진행중
 
 ## 📋 태스크 상세 내역
@@ -36,7 +43,7 @@ def create_report_body(proposal_issue):
 
 | 태스크 ID | 태스크명 | 담당자 | 예상 시간 | 실제 시간 | 진행 상태 | 우선순위 |
 | --------- | -------- | ------ | --------- | --------- | --------- | -------- |
-| TSK-{proposal_issue.number} | {project_name} | {proposal_issue.assignee.login if proposal_issue.assignee else 'TBD'} | - | - | 🟡 진행중 | - |
+| TSK-{proposal_issue.number} | {project_name} | {assignees} | - | - | 🟡 진행중 | - |
 
 </details>
 
@@ -83,7 +90,8 @@ def process_approval(issue, repo):
             report_issue = repo.create_issue(
                 title=f"보고서: {project_name}",
                 body=report_body,
-                labels=['📊 진행중']
+                labels=['📊 진행중'],
+                assignees=[assignee.login for assignee in issue.assignees] if issue.assignees else []
             )
         
         # 제안서 이슈 닫기
