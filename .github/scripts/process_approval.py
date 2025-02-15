@@ -265,12 +265,10 @@ def sanitize_project_name(name):
     return sanitized
 
 def find_daily_log_issue(repo, project_name):
-    """오늘의 Daily Log 이슈를 찾습니다."""
-    today = datetime.now().strftime('%Y-%m-%d')
+    """가장 최근의 Daily Log 이슈를 찾습니다."""
     project_name = sanitize_project_name(project_name)  # 프로젝트명 정리
-    daily_title = f"📅 Daily Development Log ({today}) - {project_name}"
     print(f"\n=== 일일 로그 이슈 검색 ===")
-    print(f"검색할 제목: {daily_title}")
+    print(f"프로젝트명: {project_name}")
     
     daily_issues = repo.get_issues(state='open', labels=['daily-log'])
     for issue in daily_issues:
@@ -279,9 +277,10 @@ def find_daily_log_issue(repo, project_name):
         issue_parts = issue.title.split(' - ')
         if len(issue_parts) == 2:
             issue_project = sanitize_project_name(issue_parts[1])
-            if issue.title.split(' - ')[0] == daily_title.split(' - ')[0] and issue_project == project_name:
+            if issue_project == project_name:
                 print(f"일일 로그 이슈를 찾았습니다: #{issue.number}")
                 return issue
+            
     print("일일 로그 이슈를 찾지 못했습니다.")
     return None
 
