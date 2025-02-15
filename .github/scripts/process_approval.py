@@ -50,19 +50,17 @@ def get_task_duration(task_issue):
     body_lines = task_issue.body.split('\n')
     total_days = 0
     
-    # [일정계획] 섹션 찾기
-    schedule_start = False
+    # Mermaid 간트 차트 파싱
+    in_gantt = False
     for line in body_lines:
-        if '[일정계획]' in line:
-            schedule_start = True
+        line = line.strip()
+        if 'gantt' in line:
+            in_gantt = True
             continue
-        if schedule_start and line.strip():
-            if line.startswith('['):  # 다음 섹션 시작
-                break
-            # 각 일정의 기간(3d, 5d 등) 추출
-            parts = line.strip().split(',')
-            if len(parts) >= 3:
-                duration = parts[2].strip()
+        if in_gantt and line and not line.startswith('```') and not line.startswith('title') and not line.startswith('dateFormat') and not line.startswith('section'):
+            # 태스크 라인 파싱 (예: "디자인 시안 작성 :2024-02-15, 3d")
+            if ':' in line and 'd' in line:
+                duration = line.split(',')[-1].strip()
                 if duration.endswith('d'):
                     days = int(duration[:-1])
                     total_days += days
@@ -228,6 +226,17 @@ def create_task_todo(task_issue):
 - [ ] [TSK-{task_issue.number}] {task_name} (start: {now})"""
     return todo_text
 
+def find_daily_log_issue(repo, project_name):
+    """오늘의 Daily Log 이슈를 찾습니다."""
+    today = datetime.now().strftime('%Y-%m-%d')
+    daily_title = f"📅 Daily Development Log ({today}) - {project_name}"
+    
+    daily_issues = repo.get_issues(state='open', labels=['daily-log'])
+    for issue in daily_issues:
+        if issue.title == daily_title:
+            return issue
+    return None
+
 def process_approval(issue, repo):
     """이슈의 라벨에 따라 승인 처리를 수행합니다."""
     labels = [label.name for label in issue.labels]
@@ -251,13 +260,13 @@ def process_approval(issue, repo):
             report_issue.create_comment(f"✅ 태스크 #{issue.number}이 {category_key} 카테고리에 추가되었습니다.")
             
             # Daily Log 이슈 찾기 및 TODO 추가
-            daily_issues = repo.get_issues(state='open', labels=['daily-log'])
-            for daily_issue in daily_issues:
-                if '📅 Daily Development Log' in daily_issue.title:
-                    # TODO 항목 생성
-                    todo_text = create_task_todo(issue)
-                    daily_issue.create_comment(f"새로운 태스크가 추가되었습니다:\n\n{todo_text}")
-                    break
+            daily_issue = find_daily_log_issue(repo, project_name)
+            if daily_issue:
+                # TODO 항목 생성 및 추가
+                todo_text = create_task_todo(issue)
+                daily_issue.create_comment(f"새로운 태스크가 추가되었습니다:\n\n{todo_text}")
+            else:
+                print(f"오늘자 Daily Log 이슈를 찾을 수 없습니다: {datetime.now().strftime('%Y-%m-%d')}")
         else:
             # 새 보고서 이슈 생성
             report_body = create_report_body(project_name)
