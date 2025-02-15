@@ -215,6 +215,22 @@ pie title 태스크 진행 상태
 > 이 보고서는 자동으로 생성되었으며, 담당자가 지속적으로 업데이트할 예정입니다.
 """
 
+def find_daily_log_issue(repo, project_name):
+    """오늘의 Daily Log 이슈를 찾습니다."""
+    today = datetime.now().strftime('%Y-%m-%d')
+    daily_title = f"📅 Daily Development Log ({today}) - {project_name}"
+    print(f"\n=== 일일 로그 이슈 검색 ===")
+    print(f"검색할 제목: {daily_title}")
+    
+    daily_issues = repo.get_issues(state='open', labels=['daily-log'])
+    for issue in daily_issues:
+        print(f"검토 중인 이슈: {issue.title}")
+        if issue.title == daily_title:
+            print(f"일일 로그 이슈를 찾았습니다: #{issue.number}")
+            return issue
+    print("일일 로그 이슈를 찾지 못했습니다.")
+    return None
+
 def create_task_todo(task_issue):
     """태스크 시작을 위한 TODO 항목을 생성합니다."""
     title_parts = task_issue.title.strip('[]').split('] ')
@@ -222,49 +238,151 @@ def create_task_todo(task_issue):
     category_key = get_category_from_labels(task_issue.labels)
     now = datetime.now().strftime('%Y-%m-%d %H:%M')
     
+    print(f"\n=== TODO 항목 생성 ===")
+    print(f"태스크명: {task_name}")
+    print(f"카테고리: {category_key}")
+    
     todo_text = f"""@{TASK_CATEGORIES[category_key]['name']}
 - [ ] [TSK-{task_issue.number}] {task_name} (start: {now})"""
+    print(f"생성된 TODO 텍스트:\n{todo_text}")
     return todo_text
 
-def find_daily_log_issue(repo, project_name):
-    """오늘의 Daily Log 이슈를 찾습니다."""
-    today = datetime.now().strftime('%Y-%m-%d')
-    daily_title = f"📅 Daily Development Log ({today}) - {project_name}"
+def parse_existing_issue(body):
+    """이슈 본문을 파싱하여 기존 TODO 항목들을 추출합니다."""
+    print(f"\n=== 이슈 본문 파싱 ===")
+    todos = []
+    in_todo_section = False
     
-    daily_issues = repo.get_issues(state='open', labels=['daily-log'])
-    for issue in daily_issues:
-        if issue.title == daily_title:
-            return issue
-    return None
+    for line in body.split('\n'):
+        if '## 📝 Todo' in line:
+            print("TODO 섹션 시작")
+            in_todo_section = True
+            continue
+        elif in_todo_section and line.strip() and line.startswith('##'):
+            print("TODO 섹션 종료")
+            break
+        elif in_todo_section and line.strip():
+            if line.startswith('- [ ]'):
+                todos.append((False, line[6:].strip()))
+                print(f"미완료 TODO 추가: {line[6:].strip()}")
+            elif line.startswith('- [x]'):
+                todos.append((True, line[6:].strip()))
+                print(f"완료된 TODO 추가: {line[6:].strip()}")
+            elif line.startswith('@'):
+                todos.append((None, line.strip()))
+                print(f"카테고리 추가: {line.strip()}")
+    
+    print(f"총 {len(todos)}개의 TODO 항목을 찾았습니다.")
+    return {
+        'todos': todos
+    }
+
+def merge_todos(existing_todos, new_todos):
+    """기존 TODO 항목과 새로운 TODO 항목을 병합합니다."""
+    print(f"\n=== TODO 항목 병합 ===")
+    print(f"기존 TODO 항목 수: {len(existing_todos)}")
+    print(f"새로운 TODO 항목 수: {len(new_todos)}")
+    
+    all_todos = existing_todos.copy()
+    
+    # 새로운 TODO 항목 추가
+    for completed, text in new_todos:
+        if text.startswith('@'):
+            # 카테고리 헤더는 중복 없이 추가
+            if text not in [t[1] for t in all_todos]:
+                all_todos.append((None, text))
+                print(f"새로운 카테고리 추가: {text}")
+        else:
+            # 일반 TODO 항목은 중복 체크 후 추가
+            if text not in [t[1] for t in all_todos]:
+                all_todos.append((completed, text))
+                print(f"새로운 TODO 항목 추가: {text}")
+            else:
+                print(f"중복된 TODO 항목 무시: {text}")
+    
+    print(f"병합 후 총 TODO 항목 수: {len(all_todos)}")
+    return all_todos
+
+def create_todo_section(todos):
+    """TODO 섹션을 생성합니다."""
+    print(f"\n=== TODO 섹션 생성 ===")
+    todo_lines = []
+    
+    for completed, text in todos:
+        if completed is None:
+            # 카테고리 헤더
+            todo_lines.append(text)
+            print(f"카테고리 추가: {text}")
+        else:
+            # TODO 항목
+            checkbox = '[x]' if completed else '[ ]'
+            todo_line = f"- {checkbox} {text}"
+            todo_lines.append(todo_line)
+            print(f"TODO 항목 추가: {todo_line}")
+    
+    result = '\n'.join(todo_lines)
+    print(f"\n생성된 TODO 섹션:\n{result}")
+    return result
 
 def process_approval(issue, repo):
     """이슈의 라벨에 따라 승인 처리를 수행합니다."""
+    print(f"\n=== 승인 처리 시작 ===")
+    print(f"이슈 번호: #{issue.number}")
+    print(f"이슈 제목: {issue.title}")
+    
     labels = [label.name for label in issue.labels]
+    print(f"이슈 라벨: {labels}")
     
     # 제목에서 프로젝트명과 태스크명 추출
     title_parts = issue.title.strip('[]').split('] ')
     project_name = repo.name  # 리포지토리명을 프로젝트명으로 사용
+    print(f"프로젝트명: {project_name}")
     
     if '✅ 승인완료' in labels:
+        print("\n승인완료 처리 시작")
         # 태스크 카테고리 결정
         category_key = get_category_from_labels(issue.labels)
+        print(f"태스크 카테고리: {category_key}")
         
         # 기존 보고서 이슈 찾기
         report_issue = find_report_issue(repo, project_name)
         
         if report_issue:
+            print(f"\n보고서 이슈 발견: #{report_issue.number}")
             # 기존 보고서 업데이트
             task_entry = create_task_entry(issue)
+            print(f"생성된 태스크 항목:\n{task_entry}")
+            
             updated_body = update_report_content(report_issue.body, task_entry, category_key)
             report_issue.edit(body=updated_body)
             report_issue.create_comment(f"✅ 태스크 #{issue.number}이 {category_key} 카테고리에 추가되었습니다.")
+            print("보고서 업데이트 완료")
             
             # Daily Log 이슈 찾기 및 TODO 추가
             daily_issue = find_daily_log_issue(repo, project_name)
             if daily_issue:
-                # TODO 항목 생성 및 추가
+                print(f"\n일일 로그 이슈 발견: #{daily_issue.number}")
+                # TODO 항목 생성
                 todo_text = create_task_todo(issue)
+                
+                # 현재 이슈 본문 파싱
+                existing_content = parse_existing_issue(daily_issue.body)
+                
+                # 새로운 TODO 항목 추가
+                new_todos = [(False, line) for line in todo_text.split('\n')]
+                all_todos = merge_todos(existing_content['todos'], new_todos)
+                
+                # TODO 섹션 업데이트
+                todo_section = create_todo_section(all_todos)
+                
+                # 이슈 본문 업데이트
+                print("\n이슈 본문 업데이트 시작")
+                body_parts = daily_issue.body.split('## 📝 Todo')
+                updated_body = f"{body_parts[0]}## 📝 Todo\n\n{todo_section}"
+                
+                daily_issue.edit(body=updated_body)
                 daily_issue.create_comment(f"새로운 태스크가 추가되었습니다:\n\n{todo_text}")
+                print("일일 로그 업데이트 완료")
             else:
                 print(f"오늘자 Daily Log 이슈를 찾을 수 없습니다: {datetime.now().strftime('%Y-%m-%d')}")
         else:
