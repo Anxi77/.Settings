@@ -49,7 +49,7 @@ def create_task_entry(task_issue):
     assignees = get_assignees_string(task_issue)
     title_parts = task_issue.title.strip('[]').split('] ')
     task_name = title_parts[1]
-    return f"| TSK-{task_issue.number} | {task_name} | {assignees} | - | - | 🟡 진행중 | - |"
+    return f"| [TSK-{task_issue.number}](#{task_issue.number}) | {task_name} | {assignees} | - | - | 🟡 진행중 | - |"
 
 def get_category_from_labels(issue_labels):
     """이슈의 라벨을 기반으로 카테고리를 결정합니다."""
@@ -93,12 +93,15 @@ def update_report_content(old_content, new_task_entry, category_key):
     
     # 새 태스크 항목 추가
     table_content = old_content[header_pos:table_end].strip()
-    if "| TSK-" in table_content:  # 기존 항목이 있는 경우
-        new_table = f"{table_content}\n{new_task_entry}"
+    lines = table_content.split('\n')
+    
+    if len(lines) > 2 and "| TSK-" in table_content:  # 기존 항목이 있는 경우
+        lines.append(new_task_entry)
+        new_table = '\n'.join(lines)
     else:  # 첫 항목인 경우
         new_table = f"{table_header}\n| --------- | -------- | ------ | --------- | --------- | --------- | -------- |\n{new_task_entry}"
     
-    return old_content[:header_pos] + new_table + "\n\n" + old_content[table_end:]
+    return f"{old_content[:header_pos]}{new_table}\n\n{old_content[table_end:]}"
 
 def create_report_body(project_name):
     """프로젝트 보고서 템플릿을 생성합니다."""
@@ -151,7 +154,7 @@ def process_approval(issue, repo):
     
     # 제목에서 프로젝트명과 태스크명 추출
     title_parts = issue.title.strip('[]').split('] ')
-    project_name = repo.name  # 리포지토리명을 프로젝트명으로 사용    project_name = repo.name  # 리포지토리명을 프로젝트명으로 사용
+    project_name = repo.name  # 리포지토리명을 프로젝트명으로 사용
     
     if '✅ 승인완료' in labels:
         # 태스크 카테고리 결정
