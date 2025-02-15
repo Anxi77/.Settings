@@ -17,33 +17,54 @@ def read_csv_data(file_path):
     current_section = None
     section_content = []
     
-    with open(file_path, 'r', encoding='utf-8') as f:
-        lines = f.readlines()
-        
-    for line in lines:
-        line = line.strip()
-        if not line:  # 빈 줄 건너뛰기
-            continue
+    # 다양한 인코딩 시도
+    encodings = ['utf-8', 'euc-kr']
+    
+    for encoding in encodings:
+        try:
+            print(f"\n=== CSV 파일 읽기 시도 ({encoding}) ===")
+            print(f"파일 경로: {file_path}")
             
-        if line.startswith('[') and line.endswith(']'):  # 새로운 섹션 시작
+            with open(file_path, 'r', encoding=encoding) as f:
+                lines = f.readlines()
+                
+            print(f"파일 읽기 성공 (인코딩: {encoding})")
+            
+            for line in lines:
+                line = line.strip()
+                if not line:  # 빈 줄 건너뛰기
+                    continue
+                    
+                if line.startswith('[') and line.endswith(']'):  # 새로운 섹션 시작
+                    if current_section and section_content:
+                        data[current_section] = '\n'.join(section_content)
+                        section_content = []
+                    current_section = line
+                    print(f"새로운 섹션 발견: {current_section}")
+                    continue
+                    
+                if current_section:  # 섹션 내용 수집
+                    section_content.append(line)
+                    print(f"섹션 내용 추가: {line[:50]}...")
+                else:  # 헤더 정보 처리
+                    if ',' in line:
+                        key, value = line.split(',', 1)
+                        data[key] = value.strip()
+                        print(f"헤더 정보 추가: {key} = {value.strip()}")
+                
+            # 마지막 섹션 처리
             if current_section and section_content:
                 data[current_section] = '\n'.join(section_content)
-                section_content = []
-            current_section = line
-            continue
-            
-        if current_section:  # 섹션 내용 수집
-            section_content.append(line)
-        else:  # 헤더 정보 처리
-            if ',' in line:
-                key, value = line.split(',', 1)
-                data[key] = value.strip()
                 
-    # 마지막 섹션 처리
-    if current_section and section_content:
-        data[current_section] = '\n'.join(section_content)
-        
-    return data
+            print(f"\n총 {len(data)}개의 섹션을 읽었습니다.")
+            return data
+            
+        except UnicodeDecodeError:
+            print(f"{encoding} 인코딩으로 읽기 실패")
+            continue
+    
+    # 모든 인코딩 시도 실패
+    raise UnicodeDecodeError(f"지원하는 인코딩({', '.join(encodings)})으로 파일을 읽을 수 없습니다.")
 
 def create_issue_body(data, project_name):
     """태스크 제안서 템플릿 형식으로 이슈 본문을 생성합니다."""
