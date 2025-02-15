@@ -674,19 +674,21 @@ def get_todays_commits(repo, branch, timezone):
     print(f"\n=== Getting Today's Commits for {branch} ===")
     
     try:
-
         commits = repo.get_commits(sha=branch)
         todays_commits = []
         
         for commit in commits:
-            commit_date = commit.commit.author.date.astimezone(tz).date()
+            commit_date = commit.commit.author.date.replace(tzinfo=pytz.UTC).astimezone(tz).date()
+            commit_time = commit.commit.author.date.replace(tzinfo=pytz.UTC).astimezone(tz)
+            
+            print(f"Commit time (UTC): {commit.commit.author.date}")
+            print(f"Commit time (Local): {commit_time}")
             
             if commit_date == today:
                 if not is_merge_commit_message(commit.commit.message):
                     todays_commits.append(commit)
-                    print(f"Found commit: [{commit.sha[:7]}] {commit.commit.message.split('\n')[0]}")
+                    print(f"Found commit: [{commit.sha[:7]}] {commit.commit.message.split('\n')[0]} at {commit_time.strftime('%H:%M:%S')}")
             elif commit_date < today:
-                # 오늘 이전의 커밋이 나오면 중단
                 break
         
         print(f"Found {len(todays_commits)} commits for today")
@@ -822,9 +824,11 @@ def main():
         if not commit_data:
             continue
 
-        # Create commit section with actual commit time
-        commit_time = commit_to_process.commit.author.date.astimezone(tz)
+        # Create commit section with actual commit time (UTC -> Local)
+        commit_time = commit_to_process.commit.author.date.replace(tzinfo=pytz.UTC).astimezone(tz)
         commit_time_string = commit_time.strftime('%H:%M:%S')
+        
+        print(f"Processing commit at time: {commit_time_string}")
         
         commit_details = create_commit_section(
             commit_data,
