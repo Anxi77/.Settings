@@ -206,11 +206,26 @@ def parse_existing_issue(body):
         print(f"Branch content:\n{branch_content}")
         
         commit_pattern = r'>\s*<details>.*?</details>'
-        commits = re.finditer(commit_pattern, branch_content, re.DOTALL)
-        commit_list = [commit.group(0) for commit in commits]
+        commits = []
         
-        result['branches'][branch_name] = '\n\n'.join(commit_list)
-        print(f"Parsed {len(commit_list)} commits from {branch_name}")
+        current_commit = []
+        in_commit_block = False
+        
+        for line in branch_content.split('\n'):
+            if '> <details>' in line:
+                in_commit_block = True
+                current_commit = [line]
+            elif in_commit_block:
+                current_commit.append(line)
+                if '> </details>' in line:
+                    in_commit_block = False
+                    commits.append('\n'.join(current_commit))
+        
+        if commits:
+            result['branches'][branch_name] = '\n\n'.join(commits)
+            print(f"Parsed {len(commits)} commits from {branch_name}")
+        else:
+            print(f"No commits found in branch {branch_name}")
     
     print("\nParsed branches:", list(result['branches'].keys()))
     
