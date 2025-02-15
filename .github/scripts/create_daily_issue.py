@@ -686,13 +686,21 @@ def get_todays_commits(repo, branch, timezone):
             
             if commit_date == today:
                 if not is_merge_commit_message(commit.commit.message):
-                    todays_commits.append(commit)
+                    todays_commits.append((commit_time, commit))
                     print(f"Found commit: [{commit.sha[:7]}] {commit.commit.message.split('\n')[0]} at {commit_time.strftime('%H:%M:%S')}")
             elif commit_date < today:
                 break
         
-        print(f"Found {len(todays_commits)} commits for today")
-        return todays_commits
+        todays_commits.sort(key=lambda x: x[0], reverse=True)
+        sorted_commits = [commit for _, commit in todays_commits]
+        
+        print(f"\nSorted commits by time (newest first):")
+        for commit in sorted_commits:
+            commit_time = commit.commit.author.date.replace(tzinfo=pytz.UTC).astimezone(tz)
+            print(f"[{commit.sha[:7]}] {commit.commit.message.split('\n')[0]} at {commit_time.strftime('%H:%M:%S')}")
+        
+        print(f"\nFound {len(sorted_commits)} commits for today")
+        return sorted_commits
         
     except Exception as e:
         print(f"Error getting commits: {str(e)}")
@@ -853,6 +861,7 @@ def main():
                 print(f"Found existing branch content for {branch_title}")
                 print("Current content:", existing_content['branches'][branch_title])
                 print("Adding new commit details:", commit_details)
+                # 새 커밋을 기존 내용 앞에 추가 (이미 시간순 정렬되어 있으므로 그대로 추가)
                 existing_content['branches'][branch_title] = f"{commit_details}\n\n{existing_content['branches'][branch_title]}"
             else:
                 print(f"Creating new branch section for {branch_title}")
