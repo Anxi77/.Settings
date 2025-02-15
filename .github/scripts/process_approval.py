@@ -142,33 +142,64 @@ def create_category_sections():
 
 def update_report_content(old_content, new_task_entry, category_key):
     """보고서 내용을 업데이트합니다."""
+    print(f"\n=== 보고서 내용 업데이트 ===")
+    print(f"카테고리: {category_key}")
+    
     # 카테고리 섹션 찾기
     category_start = old_content.find(f"<h3>{category_key}</h3>")
     if category_start == -1:
+        print("카테고리 섹션을 찾을 수 없습니다.")
         return old_content
     
     # 해당 카테고리의 테이블 찾기
     table_header = "| 태스크 ID | 태스크명 | 담당자 | 예상 시간 | 실제 시간 | 진행 상태 | 우선순위 |"
     header_pos = old_content.find(table_header, category_start)
     if header_pos == -1:
+        print("테이블 헤더를 찾을 수 없습니다.")
         return old_content
     
     # 테이블 끝 찾기
     table_end = old_content.find("</details>", header_pos)
     if table_end == -1:
+        print("테이블 끝을 찾을 수 없습니다.")
         return old_content
     
-    # 새 태스크 항목 추가
+    # 현재 테이블 내용 가져오기
     table_content = old_content[header_pos:table_end].strip()
+    print("\n현재 테이블 내용:")
+    print(table_content)
+    
+    # 테이블 라인으로 분리
     lines = table_content.split('\n')
     
-    if len(lines) > 2 and "| TSK-" in table_content:  # 기존 항목이 있는 경우
-        lines.append(new_task_entry)
-        new_table = '\n'.join(lines)
-    else:  # 첫 항목인 경우
-        new_table = f"{table_header}\n| --------- | -------- | ------ | --------- | --------- | --------- | -------- |\n{new_task_entry}"
+    # 새 태스크 항목이 이미 있는지 확인
+    task_number = re.search(r'TSK-(\d+)', new_task_entry).group(1)
+    task_exists = False
     
-    return f"{old_content[:header_pos]}{new_table}\n\n{old_content[table_end:]}"
+    print(f"\n태스크 TSK-{task_number} 검사 중...")
+    
+    for i, line in enumerate(lines):
+        if f"TSK-{task_number}" in line:
+            print(f"기존 태스크 발견: {line}")
+            task_exists = True
+            lines[i] = new_task_entry  # 기존 항목 업데이트
+            break
+    
+    if not task_exists:
+        print("새로운 태스크 추가")
+        if len(lines) > 2:  # 헤더와 구분선이 있는 경우
+            lines.append(new_task_entry)
+        else:  # 첫 항목인 경우
+            lines = [table_header, "| --------- | -------- | ------ | --------- | --------- | --------- | -------- |", new_task_entry]
+    
+    # 새로운 테이블 생성
+    new_table = '\n'.join(lines)
+    print("\n업데이트된 테이블:")
+    print(new_table)
+    
+    # 업데이트된 내용 반환
+    updated_content = f"{old_content[:header_pos]}{new_table}\n\n{old_content[table_end:]}"
+    return updated_content
 
 def create_report_body(project_name):
     """프로젝트 보고서 템플릿을 생성합니다."""
@@ -215,9 +246,28 @@ pie title 태스크 진행 상태
 > 이 보고서는 자동으로 생성되었으며, 담당자가 지속적으로 업데이트할 예정입니다.
 """
 
+def sanitize_project_name(name):
+    """프로젝트 이름에서 특수문자를 제거하고 적절한 형식으로 변환합니다."""
+    print(f"\n=== 프로젝트 이름 정리 ===")
+    print(f"원본 이름: {name}")
+    
+    # 시작 부분의 . 제거
+    while name.startswith('.'):
+        name = name[1:]
+    
+    # 특수문자를 공백으로 변환
+    sanitized = re.sub(r'[^\w\s-]', ' ', name)
+    
+    # 연속된 공백을 하나로 변환하고 앞뒤 공백 제거
+    sanitized = ' '.join(sanitized.split())
+    
+    print(f"변환된 이름: {sanitized}")
+    return sanitized
+
 def find_daily_log_issue(repo, project_name):
     """오늘의 Daily Log 이슈를 찾습니다."""
     today = datetime.now().strftime('%Y-%m-%d')
+    project_name = sanitize_project_name(project_name)  # 프로젝트명 정리
     daily_title = f"📅 Daily Development Log ({today}) - {project_name}"
     print(f"\n=== 일일 로그 이슈 검색 ===")
     print(f"검색할 제목: {daily_title}")
@@ -225,9 +275,13 @@ def find_daily_log_issue(repo, project_name):
     daily_issues = repo.get_issues(state='open', labels=['daily-log'])
     for issue in daily_issues:
         print(f"검토 중인 이슈: {issue.title}")
-        if issue.title == daily_title:
-            print(f"일일 로그 이슈를 찾았습니다: #{issue.number}")
-            return issue
+        # 이슈 제목에서 프로젝트명 부분만 정리하여 비교
+        issue_parts = issue.title.split(' - ')
+        if len(issue_parts) == 2:
+            issue_project = sanitize_project_name(issue_parts[1])
+            if issue.title.split(' - ')[0] == daily_title.split(' - ')[0] and issue_project == project_name:
+                print(f"일일 로그 이슈를 찾았습니다: #{issue.number}")
+                return issue
     print("일일 로그 이슈를 찾지 못했습니다.")
     return None
 
