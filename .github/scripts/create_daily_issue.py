@@ -208,22 +208,22 @@ def parse_existing_issue(body):
         commits = []
         lines = branch_content.split('\n')
         i = 0
+        current_commit = []
+        in_commit_block = False
         
         while i < len(lines):
             line = lines[i].strip()
             
             if '> <details>' in line:
+                in_commit_block = True
                 current_commit = [line]
-                i += 1
-                
-                while i < len(lines):
-                    line = lines[i].strip()
-                    current_commit.append(line)
-                    if '> </details>' in line:
-                        commits.append('\n'.join(current_commit))
-                        print(f"Found commit block: {current_commit[0]}")
-                        break
-                    i += 1
+            elif in_commit_block:
+                current_commit.append(line)
+                if '> </details>' in line:
+                    commits.append('\n'.join(current_commit))
+                    print(f"Found commit block: {current_commit[0]}")
+                    in_commit_block = False
+                    current_commit = []
             i += 1
         
         if commits:
@@ -913,7 +913,7 @@ def main():
 
 <div align="center">
 
-## 📊 Branch Summary
+## �� Branch Summary
 
 </div>
 
