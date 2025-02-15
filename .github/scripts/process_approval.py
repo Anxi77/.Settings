@@ -366,25 +366,28 @@ def create_todo_section(todos):
     uncategorized_todos = []
     
     for completed, text in todos:
+        print(f"처리 중인 항목: {text}")
         if completed is None and text.startswith('@'):
             current_category = text[1:]  # @ 제거
-            if current_category not in categories:
-                categories[current_category] = []
             print(f"새 카테고리 시작: {current_category}")
-        elif completed is not None:
-            if current_category in categories:
-                categories[current_category].append((completed, text))
-            else:
-                uncategorized_todos.append((completed, text))
-            print(f"TODO 항목 추가: {text}")
-    
-    # General 카테고리에 미분류 항목 추가
-    if uncategorized_todos:
-        categories["General"] = uncategorized_todos
+            continue
+            
+        # 항목이 이미 체크박스 형식인 경우 정리
+        if text.startswith('- [ ]') or text.startswith('- [x]'):
+            text = text.replace('- [ ]', '').replace('- [x]', '').strip()
+            
+        if current_category not in categories:
+            categories[current_category] = []
+            
+        categories[current_category].append((completed, text))
+        print(f"'{current_category}' 카테고리에 항목 추가: {text}")
     
     # 카테고리별 섹션 생성
     sections = []
     for category, category_todos in categories.items():
+        if not category_todos:  # 빈 카테고리는 건너뛰기
+            continue
+            
         completed_count = sum(1 for completed, _ in category_todos if completed)
         total_count = len(category_todos)
         
@@ -395,10 +398,8 @@ def create_todo_section(todos):
         # TODO 항목 추가
         for completed, text in category_todos:
             checkbox = '[x]' if completed else '[ ]'
-            if '[TSK-' in text:
-                # 태스크 참조인 경우 간단한 형식으로 변환
-                task_number = re.search(r'\[TSK-(\d+)\]', text).group(1)
-                section += f"- {checkbox} #{task_number}\n"
+            if text.startswith('#'):  # 태스크 참조인 경우
+                section += f"- {checkbox} {text}\n"
             else:
                 section += f"- {checkbox} {text}\n"
         
