@@ -222,7 +222,7 @@ def parse_existing_issue(body):
                         result['todos'].append((False, f"@{current_category}"))
                     continue
                 
-                # process todo items - 체크박스 파싱 로직 개선
+                # process todo items
                 checkbox_match = re.match(r'-\s*\[([ xX])\]\s*(.*)', line)
                 if checkbox_match:
                     is_checked = checkbox_match.group(1).lower() == 'x'
@@ -252,8 +252,7 @@ def merge_todos(existing_todos, new_todos):
                 result.append((False, f"@{current_category}"))
                 processed_categories.add(current_category.lower())
             continue
-            
-        # 이전 일자의 TODO는 체크 상태를 그대로 유지 (이미 unchecked만 가져왔으므로)
+        
         todo_map[text] = len(result)
         result.append((checked, text))
     
@@ -688,7 +687,7 @@ def main():
                     current_category = text[1:]
                     print(f"Found category: {current_category}")
                     unchecked_todos.append((False, text))
-                elif not checked:  # 체크되지 않은 항목만 추가
+                elif not checked: 
                     print(f"Adding unchecked item: {text}")
                     unchecked_todos.append((False, text))
                 else:
@@ -699,7 +698,7 @@ def main():
                 print("\nTODOs to migrate:")
                 for _, todo_text in unchecked_todos:
                     print(f"⬜ {todo_text}")
-                previous_todos = unchecked_todos  # extend 대신 직접 할당
+                previous_todos = unchecked_todos 
             else:
                 print("\nNo unchecked TODOs found to migrate")
                 
@@ -840,6 +839,8 @@ def main():
 ## 📝 Todo
 
 </div>
+
+<br></br>
 
 {create_todo_section(processed_todos)}'''
             
