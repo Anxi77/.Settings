@@ -1,6 +1,7 @@
 import os
 from github import Github
 from datetime import datetime
+import re
 
 # 태스크 카테고리 정의
 TASK_CATEGORIES = {
@@ -44,14 +45,80 @@ def get_assignees_string(issue):
     """이슈의 담당자 목록을 문자열로 반환합니다."""
     return ', '.join([assignee.login for assignee in issue.assignees]) if issue.assignees else 'TBD'
 
+def get_task_duration(task_issue):
+    """태스크의 예상 시간을 계산합니다."""
+    body_lines = task_issue.body.split('\n')
+    total_days = 0
+    
+    # [일정계획] 섹션 찾기
+    schedule_start = False
+    for line in body_lines:
+        if '[일정계획]' in line:
+            schedule_start = True
+            continue
+        if schedule_start and line.strip():
+            if line.startswith('['):  # 다음 섹션 시작
+                break
+            # 각 일정의 기간(3d, 5d 등) 추출
+            parts = line.strip().split(',')
+            if len(parts) >= 3:
+                duration = parts[2].strip()
+                if duration.endswith('d'):
+                    days = int(duration[:-1])
+                    total_days += days
+    
+    return f"{total_days}d"
+
+def parse_time_spent(todo_text):
+    """TODO 항목에서 소요 시간을 추출합니다."""
+    spent_match = re.search(r'\(spent:\s*(\d+)h\)', todo_text)
+    if spent_match:
+        return f"{spent_match.group(1)}h"
+    return None
+
+def update_task_status(repo, task_number, todo_text):
+    """태스크 상태를 업데이트합니다."""
+    # 보고서 이슈 찾기
+    project_name = repo.name
+    report_issue = find_report_issue(repo, project_name)
+    if not report_issue:
+        return
+        
+    # 소요 시간 추출
+    spent_time = parse_time_spent(todo_text)
+    if not spent_time:
+        return
+        
+    # 보고서 내용 업데이트
+    body = report_issue.body
+    task_pattern = rf"\|\s*\[TSK-{task_number}\].*?\|\s*([^\|]*?)\s*\|\s*([^\|]*?)\s*\|\s*([^\|]*?)\s*\|\s*-\s*\|\s*🟡\s*진행중\s*\|\s*-\s*\|"
+    
+    def replace_task(match):
+        return match.group(0).replace("| - | 🟡 진행중 |", f"| {spent_time} | ✅ 완료 |")
+    
+    updated_body = re.sub(task_pattern, replace_task, body)
+    if updated_body != body:
+        report_issue.edit(body=updated_body)
+        report_issue.create_comment(f"✅ TSK-{task_number} 태스크가 완료되었습니다. (소요 시간: {spent_time})")
+
+def process_todo_completion(repo, todo_text):
+    """완료된 TODO 항목을 처리합니다."""
+    # TSK 번호 추출
+    task_match = re.search(r'\[TSK-(\d+)\]', todo_text)
+    if not task_match:
+        return
+        
+    task_number = task_match.group(1)
+    update_task_status(repo, task_number, todo_text)
+
 def create_task_entry(task_issue):
     """태스크 항목을 생성합니다."""
     assignees = get_assignees_string(task_issue)
     title_parts = task_issue.title.strip('[]').split('] ')
     task_name = title_parts[1]
-    # 전체 이슈 URL 사용
     issue_url = task_issue.html_url
-    return f"| [TSK-{task_issue.number}]({issue_url}) | {task_name} | {assignees} | - | - | 🟡 진행중 | - |"
+    expected_time = get_task_duration(task_issue)
+    return f"| [TSK-{task_issue.number}]({issue_url}) | {task_name} | {assignees} | {expected_time} | - | 🟡 진행중 | - |"
 
 def get_category_from_labels(issue_labels):
     """이슈의 라벨을 기반으로 카테고리를 결정합니다."""
@@ -150,6 +217,17 @@ pie title 태스크 진행 상태
 > 이 보고서는 자동으로 생성되었으며, 담당자가 지속적으로 업데이트할 예정입니다.
 """
 
+def create_task_todo(task_issue):
+    """태스크 시작을 위한 TODO 항목을 생성합니다."""
+    title_parts = task_issue.title.strip('[]').split('] ')
+    task_name = title_parts[1]
+    category_key = get_category_from_labels(task_issue.labels)
+    now = datetime.now().strftime('%Y-%m-%d %H:%M')
+    
+    todo_text = f"""@{TASK_CATEGORIES[category_key]['name']}
+- [ ] [TSK-{task_issue.number}] {task_name} (start: {now})"""
+    return todo_text
+
 def process_approval(issue, repo):
     """이슈의 라벨에 따라 승인 처리를 수행합니다."""
     labels = [label.name for label in issue.labels]
@@ -171,6 +249,15 @@ def process_approval(issue, repo):
             updated_body = update_report_content(report_issue.body, task_entry, category_key)
             report_issue.edit(body=updated_body)
             report_issue.create_comment(f"✅ 태스크 #{issue.number}이 {category_key} 카테고리에 추가되었습니다.")
+            
+            # Daily Log 이슈 찾기 및 TODO 추가
+            daily_issues = repo.get_issues(state='open', labels=['daily-log'])
+            for daily_issue in daily_issues:
+                if '📅 Daily Development Log' in daily_issue.title:
+                    # TODO 항목 생성
+                    todo_text = create_task_todo(issue)
+                    daily_issue.create_comment(f"새로운 태스크가 추가되었습니다:\n\n{todo_text}")
+                    break
         else:
             # 새 보고서 이슈 생성
             report_body = create_report_body(project_name)
@@ -184,9 +271,8 @@ def process_approval(issue, repo):
             updated_body = update_report_content(report_body, task_entry, category_key)
             report_issue.edit(body=updated_body)
         
-        # 제안서 이슈 닫기
-        issue.create_comment("✅ 태스크가 승인되어 보고서로 전환되었습니다.")
-        issue.edit(state='closed')
+        # 승인 완료 메시지만 추가
+        issue.create_comment("✅ 태스크가 승인되어 보고서에 추가되었습니다.")
         
     elif '❌ 반려' in labels:
         issue.create_comment("❌ 태스크가 반려되었습니다. 수정 후 다시 제출해주세요.")
@@ -213,10 +299,18 @@ def main():
             import json
             event_data = json.load(f)
             issue_number = event_data['issue']['number']
-        
-        # 이슈 처리
-        issue = repo.get_issue(issue_number)
-        process_approval(issue, repo)
+            
+            # 이슈 처리
+            issue = repo.get_issue(issue_number)
+            
+            # Daily Log의 TODO 완료 처리인 경우
+            if 'daily-log' in [label.name for label in issue.labels]:
+                body = issue.body
+                for line in body.split('\n'):
+                    if '[x]' in line and 'TSK-' in line and 'spent:' in line:
+                        process_todo_completion(repo, line)
+            else:
+                process_approval(issue, repo)
 
 if __name__ == '__main__':
     main() 
