@@ -350,7 +350,7 @@ def create_todo_section(todos):
         completed = sum(1 for checked, _ in general_todos if checked)
         total = len(general_todos)
         section = f'''<details>
-<summary>📑 General ({completed}/{total})</summary>
+<summary><h3 style="display: inline;">📑 General ({completed}/{total})</h3></summary>
 
 {'\n'.join(f"- {'[x]' if checked else '[ ]'} {text}" for checked, text in general_todos)}
 
@@ -379,7 +379,7 @@ def create_todo_section(todos):
             print(f"Added todo line: {text}")
         
         section = f'''<details>
-<summary>📑 {category} ({completed}/{total})</summary>
+<summary><h3 style="display: inline;">📑 {category} ({completed}/{total})</h3></summary>
 
 {'\n'.join(todo_lines)}
 
