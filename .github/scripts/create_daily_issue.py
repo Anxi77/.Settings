@@ -267,8 +267,8 @@ def parse_existing_issue(body):
                     continue
                     
                 # process category header - extract category name and ignore statistics
-                if '<summary>📑' in line:
-                    category_match = re.match(r'<summary>📑\s*([^()]+?)(?:\s*\(\d+/\d+\))?\s*</summary>', line)
+                if '<summary>' in line:
+                    category_match = re.match(r'<summary>(?:<h3[^>]*>)?📑\s*([^()]+?)(?:\s*\(\d+/\d+\))?(?:</h3>)?</summary>', line)
                     if category_match:
                         current_category = category_match.group(1).strip()
                         print(f"\nFound category: {current_category}")
