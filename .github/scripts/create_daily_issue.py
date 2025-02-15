@@ -115,6 +115,11 @@ def parse_categorized_todos(text):
 
 def create_commit_section(commit_data, branch, commit_sha, author, time_string, repo):
     """Create commit section with details tag"""
+    print(f"\n=== Creating Commit Section ===")
+    print(f"Commit SHA: {commit_sha[:7]}")
+    print(f"Author: {author}")
+    print(f"Time: {time_string}")
+    
     # Handle None values in commit data
     body = commit_data.get('body', '').strip() if commit_data.get('body') else ''
     footer = commit_data.get('footer', '').strip() if commit_data.get('footer') else ''
@@ -122,12 +127,14 @@ def create_commit_section(commit_data, branch, commit_sha, author, time_string, 
     # Format body with bullet points
     body_lines = []
     if body:
+        print("\nProcessing commit body:")
         for line in body.split('\n'):
             line = line.strip()
             if line:
                 if line.startswith('-'):
                     line = line[1:].strip()
                 body_lines.append(f"> • {line}")
+                print(f"Added body line: {line}")
     quoted_body = '\n'.join(body_lines)
     
     # Extract issue numbers from entire commit message
@@ -137,24 +144,17 @@ def create_commit_section(commit_data, branch, commit_sha, author, time_string, 
     # Add comments to referenced issues and prepare related issues section
     related_issues = []
     
-    # Always add reference to current daily log
-    try:
-        issues = repo.get_issues(state='open', labels=['daily-log'])
-        for issue in issues:
-            if issue.title.startswith('📅 Daily Development Log'):
-                related_issues.append(f"Daily Development Log: #{issue.number}")
-                break
-    except Exception as e:
-        print(f"Failed to find current daily log issue: {str(e)}")
-    
-    # Process other referenced issues
-    for issue_num in issue_numbers:
-        try:
-            issue = repo.get_issue(int(issue_num))
-            issue.create_comment(f"Referenced in commit {commit_sha[:7]}\n\nCommit message:\n```\n{commit_data['title']}\n```")
-            related_issues.append(f"Related to #{issue_num}")
-        except Exception as e:
-            print(f"Failed to add comment to issue #{issue_num}: {str(e)}")
+    # Process referenced issues
+    if issue_numbers:
+        print("\nProcessing referenced issues:", issue_numbers)
+        for issue_num in issue_numbers:
+            try:
+                issue = repo.get_issue(int(issue_num))
+                issue.create_comment(f"Referenced in commit {commit_sha[:7]}\n\nCommit message:\n```\n{commit_data['title']}\n```")
+                related_issues.append(f"Related to #{issue_num}")
+                print(f"Added reference to issue #{issue_num}")
+            except Exception as e:
+                print(f"Failed to add comment to issue #{issue_num}: {str(e)}")
     
     # Add related issues section
     if related_issues:
@@ -169,6 +169,9 @@ def create_commit_section(commit_data, branch, commit_sha, author, time_string, 
 >
 {quoted_body}
 > </details>'''
+
+    print("\nCreated commit section:")
+    print(section)
     return section
 
 def create_section(title, content):
@@ -190,6 +193,20 @@ def parse_existing_issue(body):
         'branches': {},
         'todos': []
     }
+    
+    # Parse branch section
+    print("\n=== Parsing Branch Summary ===")
+    branch_pattern = r'<details>\s*<summary><h3 style="display: inline;">✨\s*(\w+)</h3></summary>(.*?)</details>'
+    branch_blocks = re.finditer(branch_pattern, body, re.DOTALL)
+    
+    for block in branch_blocks:
+        branch_name = block.group(1)
+        branch_content = block.group(2).strip()
+        print(f"\nFound branch: {branch_name}")
+        print(f"Branch content:\n{branch_content}")
+        result['branches'][branch_name] = branch_content
+    
+    print("\nParsed branches:", list(result['branches'].keys()))
     
     # Parse Todo section
     todo_pattern = r'## 📝 Todo\s*\n\n(.*?)(?=\n\n<div align="center">|$)'
@@ -773,9 +790,16 @@ def main():
             
             # Add new commit to branch section
             branch_title = branch.title()
+            print(f"\n=== Processing Branch: {branch_title} ===")
+            
             if branch_title in existing_content['branches']:
+                print(f"Found existing branch content for {branch_title}")
+                print("Current content:", existing_content['branches'][branch_title])
+                print("Adding new commit details:", commit_details)
                 existing_content['branches'][branch_title] = f"{existing_content['branches'][branch_title]}\n\n{commit_details}"
             else:
+                print(f"Creating new branch section for {branch_title}")
+                print("Commit details:", commit_details)
                 existing_content['branches'][branch_title] = commit_details
             
             # Convert new todos from commit message
@@ -816,13 +840,17 @@ def main():
             print(f"Total TODOs: {len(processed_todos)} items")
             
             # Create updated body with processed todos
+            print("\n=== Creating Branch Sections ===")
             branch_sections = []
             for branch_name, branch_content in existing_content['branches'].items():
-                branch_sections.append(f'''<details>
+                print(f"\nCreating section for branch: {branch_name}")
+                section = f'''<details>
 <summary><h3 style="display: inline;">✨ {branch_name}</h3></summary>
 
 {branch_content}
-</details>''')
+</details>'''
+                branch_sections.append(section)
+                print(f"Added branch section: {branch_name}")
             
             updated_body = f'''# {issue_title}
 
