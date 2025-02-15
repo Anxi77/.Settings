@@ -45,7 +45,7 @@ def read_csv_data(file_path):
         
     return data
 
-def create_issue_body(data):
+def create_issue_body(data, project_name):
     """태스크 제안서 템플릿 형식으로 이슈 본문을 생성합니다."""
     # 일정계획 데이터를 Mermaid 형식으로 변환
     schedule_mermaid = convert_schedule_to_mermaid(data['[일정계획]'])
@@ -54,7 +54,8 @@ def create_issue_body(data):
 
 ## 1. 제안 개요
 
-**프로젝트명**: {data['프로젝트명']}  
+**프로젝트명**: {project_name}  
+**태스크명**: {data['[태스크명]']}  
 **제안자**: {data['제안자']}  
 **제안일**: {data['제안일']}  
 **구현 목표일**: {data['구현목표일']}
@@ -106,6 +107,7 @@ def main():
     # 저장소 정보 가져오기
     repo_name = os.getenv('GITHUB_REPOSITORY')
     repo = github.get_repo(repo_name)
+    project_name = repo.name  # 리포지토리명을 프로젝트명으로 사용
     
     # CSV 파일 찾기
     csv_dir = Path('TaskProposals')
@@ -115,8 +117,8 @@ def main():
             data = read_csv_data(csv_file)
             
             # 이슈 생성
-            issue_title = f"태스크 제안: {data['프로젝트명']}"
-            issue_body = create_issue_body(data)
+            issue_title = f"[{project_name}] {data['[태스크명]']}"
+            issue_body = create_issue_body(data, project_name)
             
             issue = repo.create_issue(
                 title=issue_title,

@@ -2,9 +2,38 @@ import os
 from github import Github
 from datetime import datetime
 
+# 태스크 카테고리 정의
+TASK_CATEGORIES = {
+    "🔧 기능 개발": {
+        "emoji": "🔧",
+        "name": "기능 개발",
+        "description": "핵심 기능 구현 및 개발 관련 태스크"
+    },
+    "🎨 UI/UX": {
+        "emoji": "🎨",
+        "name": "UI/UX",
+        "description": "사용자 인터페이스 및 경험 관련 태스크"
+    },
+    "🔍 QA/테스트": {
+        "emoji": "🔍",
+        "name": "QA/테스트",
+        "description": "품질 보증 및 테스트 관련 태스크"
+    },
+    "📚 문서화": {
+        "emoji": "📚",
+        "name": "문서화",
+        "description": "문서 작성 및 관리 관련 태스크"
+    },
+    "🛠️ 유지보수": {
+        "emoji": "🛠️",
+        "name": "유지보수",
+        "description": "버그 수정 및 성능 개선 관련 태스크"
+    }
+}
+
 def find_report_issue(repo, project_name):
     """프로젝트의 보고서 이슈를 찾습니다."""
-    report_title = f"보고서: {project_name}"
+    report_title = f"[{project_name}] 프로젝트 진행보고서"
     open_issues = repo.get_issues(state='open')
     for issue in open_issues:
         if issue.title == report_title:
@@ -15,37 +44,81 @@ def get_assignees_string(issue):
     """이슈의 담당자 목록을 문자열로 반환합니다."""
     return ', '.join([assignee.login for assignee in issue.assignees]) if issue.assignees else 'TBD'
 
-def create_report_body(proposal_issue):
-    """태스크 보고서 템플릿으로 변환합니다."""
-    project_name = proposal_issue.title.replace('태스크 제안: ', '')
-    assignees = get_assignees_string(proposal_issue)
+def create_task_entry(task_issue):
+    """태스크 항목을 생성합니다."""
+    assignees = get_assignees_string(task_issue)
+    title_parts = task_issue.title.strip('[]').split('] ')
+    task_name = title_parts[1]
+    return f"| TSK-{task_issue.number} | {task_name} | {assignees} | - | - | 🟡 진행중 | - |"
+
+def get_category_from_labels(issue_labels):
+    """이슈의 라벨을 기반으로 카테고리를 결정합니다."""
+    for label in issue_labels:
+        category_key = label.name
+        if category_key in TASK_CATEGORIES:
+            return category_key
+    return "🔧 기능 개발"  # 기본 카테고리
+
+def create_category_sections():
+    """모든 카테고리 섹션을 생성합니다."""
+    sections = []
+    for category_key, category_info in TASK_CATEGORIES.items():
+        section = f"""<details>
+<summary><h3>{category_key}</h3></summary>
+
+| 태스크 ID | 태스크명 | 담당자 | 예상 시간 | 실제 시간 | 진행 상태 | 우선순위 |
+| --------- | -------- | ------ | --------- | --------- | --------- | -------- |
+
+</details>"""
+        sections.append(section)
+    return "\n\n".join(sections)
+
+def update_report_content(old_content, new_task_entry, category_key):
+    """보고서 내용을 업데이트합니다."""
+    # 카테고리 섹션 찾기
+    category_start = old_content.find(f"<h3>{category_key}</h3>")
+    if category_start == -1:
+        return old_content
     
+    # 해당 카테고리의 테이블 찾기
+    table_header = "| 태스크 ID | 태스크명 | 담당자 | 예상 시간 | 실제 시간 | 진행 상태 | 우선순위 |"
+    header_pos = old_content.find(table_header, category_start)
+    if header_pos == -1:
+        return old_content
+    
+    # 테이블 끝 찾기
+    table_end = old_content.find("</details>", header_pos)
+    if table_end == -1:
+        return old_content
+    
+    # 새 태스크 항목 추가
+    table_content = old_content[header_pos:table_end].strip()
+    if "| TSK-" in table_content:  # 기존 항목이 있는 경우
+        new_table = f"{table_content}\\n{new_task_entry}"
+    else:  # 첫 항목인 경우
+        new_table = f"{table_header}\\n| --------- | -------- | ------ | --------- | --------- | --------- | -------- |\\n{new_task_entry}"
+    
+    return old_content[:header_pos] + new_table + old_content[table_end:]
+
+def create_report_body(project_name):
+    """프로젝트 보고서 템플릿을 생성합니다."""
     return f"""<div align="center">
 
-![header](https://capsule-render.vercel.app/api?type=transparent&color=39FF14&height=150&section=header&text=Task%20Report&fontSize=50&animation=fadeIn&fontColor=39FF14&desc=프로젝트%20태스크%20관리%20보고서&descSize=25&descAlignY=75)
+![header](https://capsule-render.vercel.app/api?type=transparent&color=39FF14&height=150&section=header&text=Project%20Report&fontSize=50&animation=fadeIn&fontColor=39FF14&desc=프로젝트%20진행%20보고서&descSize=25&descAlignY=75)
 
-# 📊 태스크 진행 보고서
+# 📊 프로젝트 진행 보고서
 
 </div>
 
 ## 📌 기본 정보
 
-**보고서 작성일**: {datetime.now().strftime('%Y-%m-%d')}  
 **프로젝트명**: {project_name}  
-**작성자**: {proposal_issue.user.login}  
-**담당자**: {assignees}  
+**보고서 작성일**: {datetime.now().strftime('%Y-%m-%d')}  
 **보고 기간**: {datetime.now().strftime('%Y-%m-%d')} ~ 진행중
 
 ## 📋 태스크 상세 내역
 
-<details>
-<summary><h3>🔧 기능 개발</h3></summary>
-
-| 태스크 ID | 태스크명 | 담당자 | 예상 시간 | 실제 시간 | 진행 상태 | 우선순위 |
-| --------- | -------- | ------ | --------- | --------- | --------- | -------- |
-| TSK-{proposal_issue.number} | {project_name} | {assignees} | - | - | 🟡 진행중 | - |
-
-</details>
+{create_category_sections()}
 
 ## 📊 진행 현황 요약
 
@@ -75,24 +148,36 @@ pie title 태스크 진행 상태
 def process_approval(issue, repo):
     """이슈의 라벨에 따라 승인 처리를 수행합니다."""
     labels = [label.name for label in issue.labels]
-    project_name = issue.title.replace('태스크 제안: ', '')
+    
+    # 제목에서 프로젝트명과 태스크명 추출
+    title_parts = issue.title.strip('[]').split('] ')
+    project_name = repo.name  # 리포지토리명을 프로젝트명으로 사용    project_name = repo.name  # 리포지토리명을 프로젝트명으로 사용
     
     if '✅ 승인완료' in labels:
+        # 태스크 카테고리 결정
+        category_key = get_category_from_labels(issue.labels)
+        
         # 기존 보고서 이슈 찾기
         report_issue = find_report_issue(repo, project_name)
         
         if report_issue:
             # 기존 보고서 업데이트
-            report_issue.create_comment(f"✅ 태스크 제안 #{issue.number}이 승인되어 보고서가 업데이트되었습니다.")
+            task_entry = create_task_entry(issue)
+            updated_body = update_report_content(report_issue.body, task_entry, category_key)
+            report_issue.edit(body=updated_body)
+            report_issue.create_comment(f"✅ 태스크 #{issue.number}이 {category_key} 카테고리에 추가되었습니다.")
         else:
             # 새 보고서 이슈 생성
-            report_body = create_report_body(issue)
+            report_body = create_report_body(project_name)
             report_issue = repo.create_issue(
-                title=f"보고서: {project_name}",
+                title=f"[{project_name}] 프로젝트 진행보고서",
                 body=report_body,
-                labels=['📊 진행중'],
-                assignees=[assignee.login for assignee in issue.assignees] if issue.assignees else []
+                labels=['📊 진행중']
             )
+            # 첫 태스크 추가
+            task_entry = create_task_entry(issue)
+            updated_body = update_report_content(report_body, task_entry, category_key)
+            report_issue.edit(body=updated_body)
         
         # 제안서 이슈 닫기
         issue.create_comment("✅ 태스크가 승인되어 보고서로 전환되었습니다.")
