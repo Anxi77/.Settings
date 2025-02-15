@@ -1,6 +1,7 @@
 import os
 from github import Github
 from pathlib import Path
+import re
 
 def convert_schedule_to_mermaid(schedule_data):
     """CSV 형식의 일정 데이터를 Mermaid 간트 차트 형식으로 변환합니다."""
@@ -120,6 +121,24 @@ gantt
 """
     return body
 
+def sanitize_project_name(name):
+    """프로젝트 이름에서 특수문자를 제거하고 적절한 형식으로 변환합니다."""
+    print(f"\n=== 프로젝트 이름 정리 ===")
+    print(f"원본 이름: {name}")
+    
+    # 시작 부분의 . 제거
+    while name.startswith('.'):
+        name = name[1:]
+    
+    # 특수문자를 공백으로 변환
+    sanitized = re.sub(r'[^\w\s-]', ' ', name)
+    
+    # 연속된 공백을 하나로 변환하고 앞뒤 공백 제거
+    sanitized = ' '.join(sanitized.split())
+    
+    print(f"변환된 이름: {sanitized}")
+    return sanitized
+
 def main():
     # GitHub 클라이언트 초기화
     github_token = os.getenv('GITHUB_TOKEN')
@@ -128,17 +147,27 @@ def main():
     # 저장소 정보 가져오기
     repo_name = os.getenv('GITHUB_REPOSITORY')
     repo = github.get_repo(repo_name)
-    project_name = repo.name  # 리포지토리명을 프로젝트명으로 사용
+    project_name = sanitize_project_name(repo.name)  # 리포지토리명 정리
+    
+    print(f"\n=== 저장소 정보 ===")
+    print(f"원본 저장소명: {repo.name}")
+    print(f"정리된 프로젝트명: {project_name}")
     
     # CSV 파일 찾기
     csv_dir = Path('TaskProposals')
+    print(f"\n=== CSV 파일 검색 ===")
+    print(f"검색 디렉토리: {csv_dir.absolute()}")
+    
     for csv_file in csv_dir.glob('*.csv'):
         if csv_file.is_file():
+            print(f"\n발견된 CSV 파일: {csv_file}")
             # CSV 데이터 읽기
             data = read_csv_data(csv_file)
             
             # 이슈 생성
             issue_title = f"[{project_name}] {data['[태스크명]']}"
+            print(f"생성할 이슈 제목: {issue_title}")
+            
             issue_body = create_issue_body(data, project_name)
             
             issue = repo.create_issue(
@@ -146,9 +175,11 @@ def main():
                 body=issue_body,
                 labels=['⌛ 검토대기']
             )
+            print(f"이슈 생성 완료: #{issue.number}")
             
             # 처리된 CSV 파일 이동 또는 삭제
             os.remove(csv_file)
+            print(f"CSV 파일 삭제 완료: {csv_file}")
 
 if __name__ == '__main__':
     main() 
