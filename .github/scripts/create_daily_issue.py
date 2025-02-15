@@ -515,7 +515,6 @@ def is_commit_already_logged(commit_message, existing_content):
     
     # check if the commit is already logged
     for branch_content in existing_content['branches'].values():
-        # 각 커밋 블록을 개별적으로 확인
         commit_blocks = branch_content.split('\n\n')
         for block in commit_blocks:
             if '> <summary>' in block:
@@ -675,12 +674,11 @@ def get_todays_commits(repo, branch, timezone):
     print(f"\n=== Getting Today's Commits for {branch} ===")
     
     try:
-        # 브랜치의 커밋들을 가져옴
+
         commits = repo.get_commits(sha=branch)
         todays_commits = []
         
         for commit in commits:
-            # 커밋 시간을 지정된 타임존으로 변환
             commit_date = commit.commit.author.date.astimezone(tz).date()
             
             if commit_date == today:
@@ -824,13 +822,16 @@ def main():
         if not commit_data:
             continue
 
-        # Create commit section
+        # Create commit section with actual commit time
+        commit_time = commit_to_process.commit.author.date.astimezone(tz)
+        commit_time_string = commit_time.strftime('%H:%M:%S')
+        
         commit_details = create_commit_section(
             commit_data,
             branch,
             commit_to_process.sha,
             commit_to_process.commit.author.name,
-            time_string,
+            commit_time_string,
             repo
         )
 
