@@ -49,7 +49,9 @@ def create_task_entry(task_issue):
     assignees = get_assignees_string(task_issue)
     title_parts = task_issue.title.strip('[]').split('] ')
     task_name = title_parts[1]
-    return f"| [TSK-{task_issue.number}](#{task_issue.number}) | {task_name} | {assignees} | - | - | 🟡 진행중 | - |"
+    # 전체 이슈 URL 사용
+    issue_url = task_issue.html_url
+    return f"| [TSK-{task_issue.number}]({issue_url}) | {task_name} | {assignees} | - | - | 🟡 진행중 | - |"
 
 def get_category_from_labels(issue_labels):
     """이슈의 라벨을 기반으로 카테고리를 결정합니다."""
