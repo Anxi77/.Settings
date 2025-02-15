@@ -251,6 +251,7 @@ def merge_todos(existing_todos, new_todos):
                 processed_categories.add(current_category.lower())
             continue
             
+        # 이전 일자의 TODO는 체크 상태를 그대로 유지 (이미 unchecked만 가져왔으므로)
         todo_map[text] = len(result)
         result.append((checked, text))
     
