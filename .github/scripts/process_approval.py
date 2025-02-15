@@ -289,14 +289,14 @@ def create_task_todo(task_issue):
     title_parts = task_issue.title.strip('[]').split('] ')
     task_name = title_parts[1]
     category_key = get_category_from_labels(task_issue.labels)
-    now = datetime.now().strftime('%Y-%m-%d %H:%M')
     
     print(f"\n=== TODO 항목 생성 ===")
     print(f"태스크명: {task_name}")
     print(f"카테고리: {category_key}")
     
+    # 카테고리 헤더와 태스크 항목 생성
     todo_text = f"""@{TASK_CATEGORIES[category_key]['name']}
-- [ ] [TSK-{task_issue.number}] {task_name} (start: {now})"""
+- [ ] #{task_issue.number}"""
     print(f"생성된 TODO 텍스트:\n{todo_text}")
     return todo_text
 
@@ -359,21 +359,53 @@ def merge_todos(existing_todos, new_todos):
 def create_todo_section(todos):
     """TODO 섹션을 생성합니다."""
     print(f"\n=== TODO 섹션 생성 ===")
-    todo_lines = []
+    
+    # 카테고리별로 TODO 항목 그룹화
+    categories = {}
+    current_category = "General"
+    uncategorized_todos = []
     
     for completed, text in todos:
-        if completed is None:
-            # 카테고리 헤더
-            todo_lines.append(text)
-            print(f"카테고리 추가: {text}")
-        else:
-            # TODO 항목
-            checkbox = '[x]' if completed else '[ ]'
-            todo_line = f"- {checkbox} {text}"
-            todo_lines.append(todo_line)
-            print(f"TODO 항목 추가: {todo_line}")
+        if completed is None and text.startswith('@'):
+            current_category = text[1:]  # @ 제거
+            if current_category not in categories:
+                categories[current_category] = []
+            print(f"새 카테고리 시작: {current_category}")
+        elif completed is not None:
+            if current_category in categories:
+                categories[current_category].append((completed, text))
+            else:
+                uncategorized_todos.append((completed, text))
+            print(f"TODO 항목 추가: {text}")
     
-    result = '\n'.join(todo_lines)
+    # General 카테고리에 미분류 항목 추가
+    if uncategorized_todos:
+        categories["General"] = uncategorized_todos
+    
+    # 카테고리별 섹션 생성
+    sections = []
+    for category, category_todos in categories.items():
+        completed_count = sum(1 for completed, _ in category_todos if completed)
+        total_count = len(category_todos)
+        
+        section = f"""<details>
+<summary><h3 style="display: inline;">📑 {category} ({completed_count}/{total_count})</h3></summary>
+
+"""
+        # TODO 항목 추가
+        for completed, text in category_todos:
+            checkbox = '[x]' if completed else '[ ]'
+            if '[TSK-' in text:
+                # 태스크 참조인 경우 간단한 형식으로 변환
+                task_number = re.search(r'\[TSK-(\d+)\]', text).group(1)
+                section += f"- {checkbox} #{task_number}\n"
+            else:
+                section += f"- {checkbox} {text}\n"
+        
+        section += "\n⚫\n</details>\n"
+        sections.append(section)
+    
+    result = '\n'.join(sections)
     print(f"\n생성된 TODO 섹션:\n{result}")
     return result
 
