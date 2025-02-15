@@ -94,11 +94,11 @@ def update_report_content(old_content, new_task_entry, category_key):
     # 새 태스크 항목 추가
     table_content = old_content[header_pos:table_end].strip()
     if "| TSK-" in table_content:  # 기존 항목이 있는 경우
-        new_table = f"{table_content}\\n{new_task_entry}"
+        new_table = f"{table_content}\n{new_task_entry}"
     else:  # 첫 항목인 경우
-        new_table = f"{table_header}\\n| --------- | -------- | ------ | --------- | --------- | --------- | -------- |\\n{new_task_entry}"
+        new_table = f"{table_header}\n| --------- | -------- | ------ | --------- | --------- | --------- | -------- |\n{new_task_entry}"
     
-    return old_content[:header_pos] + new_table + old_content[table_end:]
+    return old_content[:header_pos] + new_table + "\n\n" + old_content[table_end:]
 
 def create_report_body(project_name):
     """프로젝트 보고서 템플릿을 생성합니다."""
