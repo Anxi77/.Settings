@@ -184,26 +184,19 @@ def create_section(title, content):
 
 def parse_existing_issue(body):
     """Parse existing issue body to extract branch commits and todos"""
+    print("\n=== Parsing Issue Body ===")
     # Initialize result structure
     result = {
         'branches': {},
         'todos': []
     }
     
-    # Parse branch section
-    branch_pattern = r'<details>\s*<summary><h3 style="display: inline;">✨\s*(\w+)</h3></summary>(.*?)</details>'
-    branch_blocks = re.finditer(branch_pattern, body, re.DOTALL)
-    
-    for block in branch_blocks:
-        branch_name = block.group(1)
-        branch_content = block.group(2).strip()
-        result['branches'][branch_name] = branch_content
-    
     # Parse Todo section
     todo_pattern = r'## 📝 Todo\s*\n\n(.*?)(?=\n\n<div align="center">|$)'
     todo_match = re.search(todo_pattern, body, re.DOTALL)
     if todo_match:
         todo_section = todo_match.group(1).strip()
+        print(f"\nFound TODO section:\n{todo_section}")
         if todo_section:
             current_category = 'General'
             for line in todo_section.split('\n'):
@@ -213,8 +206,11 @@ def parse_existing_issue(body):
                     
                 # skip details tags 
                 if '<details>' in line:
+                    print(f"Skipping details tag: {line}")
                     continue
                 if '</details>' in line:
+                    continue
+                if '⚫' in line:
                     continue
                     
                 # process category header - extract category name and ignore statistics
@@ -222,6 +218,7 @@ def parse_existing_issue(body):
                     category_match = re.match(r'<summary>📑\s*([^()]+?)(?:\s*\(\d+/\d+\))?\s*</summary>', line)
                     if category_match:
                         current_category = category_match.group(1).strip()
+                        print(f"\nFound category: {current_category}")
                         result['todos'].append((False, f"@{current_category}"))
                     continue
                 
@@ -230,7 +227,12 @@ def parse_existing_issue(body):
                 if checkbox_match:
                     is_checked = checkbox_match.group(1).lower() == 'x'
                     todo_text = checkbox_match.group(2).strip()
+                    print(f"Found TODO item: [{is_checked}] {todo_text}")
                     result['todos'].append((is_checked, todo_text))
+    
+    print("\nParsed TODOs:")
+    for checked, text in result['todos']:
+        print(f"- [{'x' if checked else ' '}] {text}")
     
     return result
 
@@ -675,21 +677,32 @@ def main():
         if issue != today_issue and is_daily_log_issue(issue.title):
             print(f"\n=== Processing Previous Issue #{issue.number} ===")
             prev_content = parse_existing_issue(issue.body)
+            
+            print("\nFiltering unchecked TODOs:")
             unchecked_todos = []
             current_category = None
             
             for checked, text in prev_content['todos']:
+                print(f"Processing: [{checked}] {text}")
                 if text.startswith('@'):
                     current_category = text[1:]
+                    print(f"Found category: {current_category}")
                     unchecked_todos.append((False, text))
                 elif not checked:  # 체크되지 않은 항목만 추가
+                    print(f"Adding unchecked item: {text}")
                     unchecked_todos.append((False, text))
+                else:
+                    print(f"Skipping checked item: {text}")
             
             if unchecked_todos:
-                print(f"Found {len(unchecked_todos)} unchecked TODOs")
+                print(f"\nFound {len(unchecked_todos)} unchecked TODOs")
+                print("\nTODOs to migrate:")
                 for _, todo_text in unchecked_todos:
-                    print(f"⬜ Migrating: {todo_text}")
+                    print(f"⬜ {todo_text}")
                 previous_todos = unchecked_todos  # extend 대신 직접 할당
+            else:
+                print("\nNo unchecked TODOs found to migrate")
+                
             issue.edit(state='closed')
             print(f"Closed previous issue #{issue.number}")
 
