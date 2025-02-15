@@ -205,21 +205,26 @@ def parse_existing_issue(body):
         print(f"\nFound branch: {branch_name}")
         print(f"Branch content:\n{branch_content}")
         
-        commit_pattern = r'>\s*<details>.*?</details>'
         commits = []
+        lines = branch_content.split('\n')
+        i = 0
         
-        current_commit = []
-        in_commit_block = False
-        
-        for line in branch_content.split('\n'):
+        while i < len(lines):
+            line = lines[i].strip()
+            
             if '> <details>' in line:
-                in_commit_block = True
                 current_commit = [line]
-            elif in_commit_block:
-                current_commit.append(line)
-                if '> </details>' in line:
-                    in_commit_block = False
-                    commits.append('\n'.join(current_commit))
+                i += 1
+                
+                while i < len(lines):
+                    line = lines[i].strip()
+                    current_commit.append(line)
+                    if '> </details>' in line:
+                        commits.append('\n'.join(current_commit))
+                        print(f"Found commit block: {current_commit[0]}")
+                        break
+                    i += 1
+            i += 1
         
         if commits:
             result['branches'][branch_name] = '\n\n'.join(commits)
