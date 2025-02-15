@@ -674,15 +674,14 @@ def get_todays_commits(repo, branch, timezone):
     print(f"\n=== Getting Today's Commits for {branch} ===")
     
     try:
+        # 브랜치의 커밋들을 가져옴
         commits = repo.get_commits(sha=branch)
         todays_commits = []
         
         for commit in commits:
+            # GitHub API가 반환하는 시간은 UTC이므로 지정된 타임존으로 변환
             commit_date = commit.commit.author.date.replace(tzinfo=pytz.UTC).astimezone(tz).date()
             commit_time = commit.commit.author.date.replace(tzinfo=pytz.UTC).astimezone(tz)
-            
-            print(f"Commit time (UTC): {commit.commit.author.date}")
-            print(f"Commit time (Local): {commit_time}")
             
             if commit_date == today:
                 if not is_merge_commit_message(commit.commit.message):
@@ -691,13 +690,9 @@ def get_todays_commits(repo, branch, timezone):
             elif commit_date < today:
                 break
         
+        # 시간 기준으로 정렬 (최신순)
         todays_commits.sort(key=lambda x: x[0], reverse=True)
         sorted_commits = [commit for _, commit in todays_commits]
-        
-        print(f"\nSorted commits by time (newest first):")
-        for commit in sorted_commits:
-            commit_time = commit.commit.author.date.replace(tzinfo=pytz.UTC).astimezone(tz)
-            print(f"[{commit.sha[:7]}] {commit.commit.message.split('\n')[0]} at {commit_time.strftime('%H:%M:%S')}")
         
         print(f"\nFound {len(sorted_commits)} commits for today")
         return sorted_commits
@@ -722,7 +717,7 @@ def main():
     repo = g.get_repo(repository)
     branch = os.environ['GITHUB_REF'].replace('refs/heads/', '')
     
-    # Get today's commits
+    # Get today's commits and sort by time
     commits_to_process = get_todays_commits(repo, branch, timezone)
     
     if not commits_to_process:
@@ -825,18 +820,17 @@ def main():
     # Create issue title
     issue_title = f"{issue_prefix} Daily Development Log ({date_string}) - {repo_name}"
 
-    # Process each commit
+    # Create commit sections
+    commit_sections = []
     for commit_to_process in commits_to_process:
         # Parse commit message
         commit_data = parse_commit_message(commit_to_process.commit.message)
         if not commit_data:
             continue
 
-        # Create commit section with actual commit time (UTC -> Local)
+        # Get commit time in local timezone
         commit_time = commit_to_process.commit.author.date.replace(tzinfo=pytz.UTC).astimezone(tz)
         commit_time_string = commit_time.strftime('%H:%M:%S')
-        
-        print(f"Processing commit at time: {commit_time_string}")
         
         commit_details = create_commit_section(
             commit_data,
@@ -846,31 +840,21 @@ def main():
             commit_time_string,
             repo
         )
+        commit_sections.append(commit_details)
 
-        # Create todo section and merge with previous todos
-        if today_issue:
-            # Parse existing issue
-            print(f"\n=== TODO Statistics ===")
-            print(f"Current TODOs in issue: {len(existing_content['todos'])} items")
-            
-            # Add new commit to branch section
-            branch_title = branch.title()
-            print(f"\n=== Processing Branch: {branch_title} ===")
-            
-            if branch_title in existing_content['branches']:
-                print(f"Found existing branch content for {branch_title}")
-                print("Current content:", existing_content['branches'][branch_title])
-                print("Adding new commit details:", commit_details)
-                # 새 커밋을 기존 내용 앞에 추가 (이미 시간순 정렬되어 있으므로 그대로 추가)
-                existing_content['branches'][branch_title] = f"{commit_details}\n\n{existing_content['branches'][branch_title]}"
-            else:
-                print(f"Creating new branch section for {branch_title}")
-                print("Commit details:", commit_details)
-                existing_content['branches'][branch_title] = commit_details
-            
-            # Convert new todos from commit message
-            new_todos = []
-            if commit_data['todo']:
+    # Join all commit sections
+    branch_content = '\n\n'.join(commit_sections)
+
+    if today_issue:
+        # Parse existing issue
+        print(f"\n=== TODO Statistics ===")
+        print(f"Current TODOs in issue: {len(existing_content['todos'])} items")
+        
+        # Convert new todos from commit message
+        new_todos = []
+        for commit in commits_to_process:
+            commit_data = parse_commit_message(commit.commit.message)
+            if commit_data and commit_data['todo']:
                 print(f"\n=== Processing TODOs from Commit ===")
                 print(f"Todo section from commit:\n{commit_data['todo']}")
                 
@@ -882,43 +866,37 @@ def main():
                         new_todos.append((False, line))
                     elif line.startswith('-'):
                         new_todos.append((False, line[2:].strip()))
-            
-            print(f"\nParsed new todos:")
-            for checked, text in new_todos:
-                print(f"- [{checked}] {text}")
-            
-            # Maintain existing todos while adding new ones
-            all_todos = merge_todos(existing_content['todos'], new_todos)
-            if previous_todos:
-                print(f"\n=== TODOs Migrated from Previous Day ===")
-                for _, todo_text in previous_todos:
-                    print(f"⬜ {todo_text}")
-                all_todos = merge_todos(all_todos, previous_todos)
-            
-            # Process todos and create issues for marked items
-            processed_todos, created_issues = process_todo_items(repo, all_todos, today_issue.number)
-            
-            print(f"\n=== Created {len(created_issues)} new issues from todos ===")
-            for issue in created_issues:
-                print(f"#{issue.number}: {issue.title}")
-            
-            print(f"\n=== Final Result ===")
-            print(f"Total TODOs: {len(processed_todos)} items")
-            
-            # Create updated body with processed todos
-            print("\n=== Creating Branch Sections ===")
-            branch_sections = []
-            for branch_name, branch_content in existing_content['branches'].items():
-                print(f"\nCreating section for branch: {branch_name}")
-                section = f'''<details>
-<summary><h3 style="display: inline;">✨ {branch_name}</h3></summary>
+        
+        print(f"\nParsed new todos:")
+        for checked, text in new_todos:
+            print(f"- [{checked}] {text}")
+        
+        # Maintain existing todos while adding new ones
+        all_todos = merge_todos(existing_content['todos'], new_todos)
+        if previous_todos:
+            print(f"\n=== TODOs Migrated from Previous Day ===")
+            for _, todo_text in previous_todos:
+                print(f"⬜ {todo_text}")
+            all_todos = merge_todos(all_todos, previous_todos)
+        
+        # Process todos and create issues for marked items
+        processed_todos, created_issues = process_todo_items(repo, all_todos, today_issue.number)
+        
+        print(f"\n=== Created {len(created_issues)} new issues from todos ===")
+        for issue in created_issues:
+            print(f"#{issue.number}: {issue.title}")
+        
+        print(f"\n=== Final Result ===")
+        print(f"Total TODOs: {len(processed_todos)} items")
+        
+        # Create updated body with processed todos
+        branch_section = f'''<details>
+<summary><h3 style="display: inline;">✨ {branch.title()}</h3></summary>
 
 {branch_content}
 </details>'''
-                branch_sections.append(section)
-                print(f"Added branch section: {branch_name}")
-            
-            updated_body = f'''# {issue_title}
+
+        updated_body = f'''# {issue_title}
 
 <div align="center">
 
@@ -926,7 +904,7 @@ def main():
 
 </div>
 
-{''.join(branch_sections)}
+{branch_section}
 
 <div align="center">
 
@@ -935,21 +913,25 @@ def main():
 </div>
 
 {create_todo_section(processed_todos)}'''
-            
-            today_issue.edit(body=updated_body)
-            print(f"Updated issue #{today_issue.number}")
-        else:
-            # For new issue, merge previous todos with new ones
-            new_todos = []
-            if commit_data['todo']:
+
+        today_issue.edit(body=updated_body)
+        print(f"Updated issue #{today_issue.number}")
+    else:
+        # For new issue, merge previous todos with new ones
+        new_todos = []
+        for commit in commits_to_process:
+            commit_data = parse_commit_message(commit.commit.message)
+            if commit_data and commit_data['todo']:
                 todo_lines = convert_to_checkbox_list(commit_data['todo']).split('\n')
-                new_todos = [(False, line[2:].strip()) for line in todo_lines if line.startswith('-')]
-            
-            # Merge all todos
-            all_todos = merge_todos(new_todos, previous_todos)
-            
-            # Create initial body with commit at the top
-            body = f'''# {issue_title}
+                for line in todo_lines:
+                    if line.startswith('-'):
+                        new_todos.append((False, line[2:].strip()))
+        
+        # Merge all todos
+        all_todos = merge_todos(new_todos, previous_todos)
+        
+        # Create initial body with commit at the top
+        body = f'''# {issue_title}
 
 <div align="center">
 
@@ -960,7 +942,7 @@ def main():
 <details>
 <summary><h3 style="display: inline;">✨ {branch.title()}</h3></summary>
 
-{commit_details}
+{branch_content}
 </details>
 
 <div align="center">
@@ -971,13 +953,13 @@ def main():
 
 {create_todo_section(all_todos)}'''
 
-            # Create new issue with initial content
-            new_issue = repo.create_issue(
-                title=issue_title,
-                body=body,
-                labels=[issue_label, f"branch:{branch}", f"type:{commit_data['type_info']['label']}"]
-            )
-            print(f"Created new issue #{new_issue.number}")
+        # Create new issue with initial content
+        new_issue = repo.create_issue(
+            title=issue_title,
+            body=body,
+            labels=[issue_label, f"branch:{branch}"]
+        )
+        print(f"Created new issue #{new_issue.number}")
 
 if __name__ == '__main__':
     main()
