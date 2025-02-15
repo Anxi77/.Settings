@@ -225,11 +225,11 @@ def parse_existing_issue(body):
                         result['todos'].append((False, f"@{current_category}"))
                     continue
                 
-                # process todo items
-                checkbox_match = re.match(r'- \[([ x])\] (.*)', line)
+                # process todo items - 체크박스 파싱 로직 개선
+                checkbox_match = re.match(r'-\s*\[([ xX])\]\s*(.*)', line)
                 if checkbox_match:
-                    is_checked = checkbox_match.group(1) == 'x'
-                    todo_text = checkbox_match.group(2)
+                    is_checked = checkbox_match.group(1).lower() == 'x'
+                    todo_text = checkbox_match.group(2).strip()
                     result['todos'].append((is_checked, todo_text))
     
     return result
@@ -675,12 +675,21 @@ def main():
         if issue != today_issue and is_daily_log_issue(issue.title):
             print(f"\n=== Processing Previous Issue #{issue.number} ===")
             prev_content = parse_existing_issue(issue.body)
-            unchecked_todos = [(False, todo[1]) for todo in prev_content['todos'] if not todo[0]]
+            unchecked_todos = []
+            current_category = None
+            
+            for checked, text in prev_content['todos']:
+                if text.startswith('@'):
+                    current_category = text[1:]
+                    unchecked_todos.append((False, text))
+                elif not checked:  # 체크되지 않은 항목만 추가
+                    unchecked_todos.append((False, text))
+            
             if unchecked_todos:
                 print(f"Found {len(unchecked_todos)} unchecked TODOs")
                 for _, todo_text in unchecked_todos:
                     print(f"⬜ Migrating: {todo_text}")
-                previous_todos.extend(unchecked_todos)
+                previous_todos = unchecked_todos  # extend 대신 직접 할당
             issue.edit(state='closed')
             print(f"Closed previous issue #{issue.number}")
 
