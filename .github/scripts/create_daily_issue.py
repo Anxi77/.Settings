@@ -204,7 +204,13 @@ def parse_existing_issue(body):
         branch_content = block.group(2).strip()
         print(f"\nFound branch: {branch_name}")
         print(f"Branch content:\n{branch_content}")
-        result['branches'][branch_name] = branch_content
+        
+        commit_pattern = r'>\s*<details>.*?</details>'
+        commits = re.finditer(commit_pattern, branch_content, re.DOTALL)
+        commit_list = [commit.group(0) for commit in commits]
+        
+        result['branches'][branch_name] = '\n\n'.join(commit_list)
+        print(f"Parsed {len(commit_list)} commits from {branch_name}")
     
     print("\nParsed branches:", list(result['branches'].keys()))
     
@@ -796,7 +802,7 @@ def main():
                 print(f"Found existing branch content for {branch_title}")
                 print("Current content:", existing_content['branches'][branch_title])
                 print("Adding new commit details:", commit_details)
-                existing_content['branches'][branch_title] = f"{existing_content['branches'][branch_title]}\n\n{commit_details}"
+                existing_content['branches'][branch_title] = f"{commit_details}\n\n{existing_content['branches'][branch_title]}"
             else:
                 print(f"Creating new branch section for {branch_title}")
                 print("Commit details:", commit_details)
@@ -882,7 +888,7 @@ def main():
             # Merge all todos
             all_todos = merge_todos(new_todos, previous_todos)
             
-            # Create initial body
+            # Create initial body with commit at the top
             body = f'''# {issue_title}
 
 <div align="center">
