@@ -910,8 +910,6 @@ def main():
 
 ## 📝 Todo
 
-</div>
-
 {create_todo_section(processed_todos)}'''
 
         today_issue.edit(body=updated_body)
