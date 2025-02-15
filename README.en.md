@@ -24,6 +24,16 @@ This repository contains various presets for development environment configurati
 - 🔠 Case-insensitive category handling
 - 📋 Automatic General category for uncategorized items
 
+#### [Task Management](https://github.com/Anxi77/.Settings/tree/main/Actions/TaskManagement)
+
+- 📋 Automatic CSV task proposal processing
+- ✅ Label-based approval process
+- 📊 Automated project progress reporting
+- 📈 Schedule visualization with Gantt charts
+- 🏷 Category-based task management
+- 📌 Real-time progress tracking
+- 📊 Automatic statistics generation
+
 ### 🧮 [AlgorithmSolving](https://github.com/Anxi77/.Settings/tree/main/AlgorithmSolving)
 
 Algorithm problem-solving environment setup with:
@@ -104,6 +114,7 @@ Pull requests are welcome if you'd like to suggest new configurations or improve
 [Unity](https://github.com/Anxi77/.Settings/tree/main/Unity) •
 [VSCode](https://github.com/Anxi77/.Settings/tree/main/VSCode) •
 [ReadmeTemplates](https://github.com/Anxi77/.Settings/tree/main/Documents) •
-[DailyDevelopmentLogging](https://github.com/Anxi77/.Settings/tree/main/Actions/DailyDevelopmentLogging)
+[DailyDevelopmentLogging](https://github.com/Anxi77/.Settings/tree/main/Actions/DailyDevelopmentLogging) •
+[TaskManagement](https://github.com/Anxi77/.Settings/tree/main/Actions/TaskManagement)
 
 </div>

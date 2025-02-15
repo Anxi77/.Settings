@@ -949,8 +949,6 @@ def main():
 
 ## 📝 Todo
 
-</div>
-
 {create_todo_section(all_todos)}'''
 
         # Create new issue with initial content

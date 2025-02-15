@@ -284,7 +284,7 @@ Closes #128
 </details>
 
 <details>
-<summary><h1>📋 Daily Development Log 액션 사용 설명서</h1></summary>
+<summary><h1>📋 Daily Development Log 사용 설명</h1></summary>
 <div align="center">
 
 ## 📌 개요
@@ -418,6 +418,84 @@ env:
 
 </div>
 </details>
+
+<details>
+<summary><h1>📋 Task Management 사용 설명</h1></summary>
+<div align="center">
+
+## 📌 개요
+
+이 GitHub 액션은 프로젝트 태스크를 체계적으로 생성, 관리하고 진행 상황을 추적하는 자동화 시스템입니다. CSV 형식의 태스크 제안서를 기반으로 이슈를 생성하고, 승인 프로세스를 통해 프로젝트 보고서를 자동으로 업데이트합니다.
+
+## 🔧 주요 기능
+
+### ✨ 태스크 제안 및 생성
+
+&nbsp;&nbsp;&nbsp;• CSV 형식의 태스크 제안서 자동 처리<br>
+&nbsp;&nbsp;&nbsp;• 표준화된 이슈 템플릿 생성<br>
+&nbsp;&nbsp;&nbsp;• 간트 차트를 통한 일정 시각화<br>
+
+### 🏷 태스크 카테고리
+
+&nbsp;&nbsp;&nbsp;• 🔧 기능 개발: 핵심 기능 구현 및 개발 관련 태스크<br>
+&nbsp;&nbsp;&nbsp;• 🎨 UI/UX: 사용자 인터페이스 및 경험 관련 태스크<br>
+&nbsp;&nbsp;&nbsp;• 🔍 QA/테스트: 품질 보증 및 테스트 관련 태스크<br>
+&nbsp;&nbsp;&nbsp;• 📚 문서화: 문서 작성 및 관리 관련 태스크<br>
+&nbsp;&nbsp;&nbsp;• 🛠️ 유지보수: 버그 수정 및 성능 개선 관련 태스크<br>
+
+### ✅ 승인 프로세스
+
+&nbsp;&nbsp;&nbsp;• ⌛ 검토대기: 초기 검토 대기 상태<br>
+&nbsp;&nbsp;&nbsp;• ✅ 승인완료: 태스크 승인 및 진행 시작<br>
+&nbsp;&nbsp;&nbsp;• ❌ 반려: 태스크 반려 및 수정 필요<br>
+&nbsp;&nbsp;&nbsp;• ⏸️ 보류: 추가 논의 필요<br>
+
+### 📊 프로젝트 보고서
+
+&nbsp;&nbsp;&nbsp;• 실시간 진행 상황 추적<br>
+&nbsp;&nbsp;&nbsp;• 카테고리별 태스크 관리<br>
+&nbsp;&nbsp;&nbsp;• 자동 통계 생성 및 시각화<br>
+
+### 💫 태스크 제안서 예시
+
+```csv
+[태스크명],UI/UX 개선 프로젝트
+제안자,김고고
+제안일,2024-02-15
+구현목표일,2024-03-01
+
+[태스크범위]
+1. 대시보드 UI 리뉴얼
+2. 반응형 디자인 구현
+3. 다크모드 지원
+4. 접근성 개선
+
+[필수요구사항]
+- 모던한 디자인 시스템 적용
+- 모바일 대응 레이아웃
+- 사용자 피드백 반영
+- 크로스 브라우저 호환성
+
+[선택요구사항]
+- 애니메이션 효과 추가
+- 커스텀 테마 지원
+- 실시간 미리보기
+
+[일정계획]
+디자인 시안 작성,2024-02-15,3d
+피드백 수렴,2024-02-18,2d
+UI 구현,2024-02-20,5d
+테스트,2024-02-25,3d
+배포,2024-02-28,2d
+```
+
+## ⚠️ 주의사항
+
+&nbsp;&nbsp;&nbsp;1. CSV 파일은 정확한 형식을 따라야 합니다.<br>
+&nbsp;&nbsp;&nbsp;2. 태스크 제안서는 `TaskProposals` 디렉토리에 위치해야 합니다.<br>
+&nbsp;&nbsp;&nbsp;3. 승인 프로세스는 지정된 라벨만 사용해야 합니다.<br>
+&nbsp;&nbsp;&nbsp;4. 보고서는 자동으로 업데이트되므로 수동으로 수정하지 마세요.<br>
+&nbsp;&nbsp;&nbsp;5. 모든 시간은 'd' (일) 단위로 지정해야 합니다.<br>
 
 </div>
 </details>

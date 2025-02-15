@@ -31,6 +31,16 @@
 - 🔠 대소문자 구분 없는 카테고리 처리
 - 📋 미분류 항목을 위한 General 카테고리 자동 생성
 
+#### [태스크 관리](https://github.com/Anxi77/.Settings/tree/main/Actions/TaskManagement)
+
+- 📋 CSV 형식의 태스크 제안서 자동 처리
+- ✅ 라벨 기반 승인 프로세스
+- 📊 프로젝트 진행 보고서 자동 생성
+- 📈 간트 차트를 통한 일정 시각화
+- 🏷 카테고리별 태스크 관리
+- 📌 실시간 진행 상황 추적
+- 📊 자동 통계 생성 및 시각화
+
 ### 🧮 [알고리즘 문제풀이](https://github.com/Anxi77/.Settings/tree/main/AlgorithmSolving)
 
 알고리즘 문제 해결을 위한 환경 설정:
@@ -111,6 +121,7 @@ Unity 개발 환경 구성:
 [VSCode](https://github.com/Anxi77/.Settings/tree/main/VSCode) •
 [ReadmeTemplates](https://github.com/Anxi77/.Settings/tree/main/Documents) •
 [BaekjoonLogging](https://github.com/Anxi77/.Settings/tree/main/Actions/BaekjoonLogging) •
-[DailyDevelopmentLogging](https://github.com/Anxi77/.Settings/tree/main/Actions/DailyDevelopmentLogging)
+[DailyDevelopmentLogging](https://github.com/Anxi77/.Settings/tree/main/Actions/DailyDevelopmentLogging) •
+[TaskManagement](https://github.com/Anxi77/.Settings/tree/main/Actions/TaskManagement)
 
 </div>

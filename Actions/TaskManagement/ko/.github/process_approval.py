@@ -201,8 +201,80 @@ def update_report_content(old_content, new_task_entry, category_key):
     updated_content = f"{old_content[:header_pos]}{new_table}\n\n{old_content[table_end:]}"
     return updated_content
 
+def calculate_progress_stats(body):
+    """보고서 내용에서 태스크 진행 상태를 계산합니다."""
+    print("\n=== 진행 상태 계산 ===")
+    completed = 0
+    in_progress = 0
+    total = 0
+    
+    # 모든 태스크 상태 확인
+    for line in body.split('\n'):
+        if '| TSK-' in line or '|[TSK-' in line:
+            total += 1
+            if '✅ 완료' in line:
+                completed += 1
+            elif '🟡 진행중' in line:
+                in_progress += 1
+    
+    print(f"완료: {completed}, 진행중: {in_progress}, 총: {total}")
+    return completed, in_progress, total
+
+def create_progress_section(completed, in_progress, total):
+    """진행 현황 섹션을 생성합니다."""
+    if total == 0:
+        return """### 전체 진행률
+
+```mermaid
+pie title 태스크 진행 상태
+    "진행중" : 0
+    "완료" : 0
+```"""
+    
+    completed_percent = (completed / total) * 100
+    in_progress_percent = (in_progress / total) * 100
+    
+    return f"""### 전체 진행률
+
+진행 상태: {completed}/{total} 완료 ({completed_percent:.1f}%)
+
+```mermaid
+pie title 태스크 진행 상태
+    "완료" : {completed_percent}
+    "진행중" : {in_progress_percent}
+```"""
+
+def update_progress_section(body):
+    """보고서의 진행 현황 섹션을 업데이트합니다."""
+    print("\n=== 진행 현황 섹션 업데이트 ===")
+    
+    # 진행 상태 계산
+    completed, in_progress, total = calculate_progress_stats(body)
+    
+    # 새로운 진행 현황 섹션 생성
+    new_progress_section = create_progress_section(completed, in_progress, total)
+    
+    # 진행 현황 섹션 업데이트
+    progress_start = body.find("### 전체 진행률")
+    if progress_start == -1:
+        print("진행 현황 섹션을 찾을 수 없습니다.")
+        return body
+        
+    progress_end = body.find("## 📝 특이사항", progress_start)
+    if progress_end == -1:
+        print("다음 섹션을 찾을 수 없습니다.")
+        return body
+    
+    return f"{body[:progress_start]}{new_progress_section}\n\n{body[progress_end:]}"
+
 def create_report_body(project_name):
     """프로젝트 보고서 템플릿을 생성합니다."""
+    # 카테고리 섹션 생성
+    category_sections = create_category_sections()
+    
+    # 초기 진행 현황 섹션 생성
+    initial_progress = create_progress_section(0, 0, 0)
+    
     return f"""<div align="center">
 
 ![header](https://capsule-render.vercel.app/api?type=transparent&color=39FF14&height=150&section=header&text=Project%20Report&fontSize=50&animation=fadeIn&fontColor=39FF14&desc=프로젝트%20진행%20보고서&descSize=25&descAlignY=75)
@@ -219,16 +291,11 @@ def create_report_body(project_name):
 
 ## 📋 태스크 상세 내역
 
-{create_category_sections()}
+{category_sections}
 
 ## 📊 진행 현황 요약
 
-### 전체 진행률
-
-```mermaid
-pie title 태스크 진행 상태
-    "진행중" : 100
-```
+{initial_progress}
 
 ## 📝 특이사항 및 리스크
 
@@ -439,7 +506,12 @@ def process_approval(issue, repo):
             task_entry = create_task_entry(issue)
             print(f"생성된 태스크 항목:\n{task_entry}")
             
+            # 태스크 항목 업데이트
             updated_body = update_report_content(report_issue.body, task_entry, category_key)
+            
+            # 진행 현황 섹션 업데이트
+            updated_body = update_progress_section(updated_body)
+            
             report_issue.edit(body=updated_body)
             report_issue.create_comment(f"✅ 태스크 #{issue.number}이 {category_key} 카테고리에 추가되었습니다.")
             print("보고서 업데이트 완료")
