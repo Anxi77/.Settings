@@ -203,32 +203,42 @@ def parse_existing_issue(body):
         branch_name = block.group(1)
         branch_content = block.group(2).strip()
         print(f"\nFound branch: {branch_name}")
-        print(f"Branch content:\n{branch_content}")
         
         commits = []
         lines = branch_content.split('\n')
-        i = 0
         current_commit = []
         in_commit_block = False
         
-        while i < len(lines):
-            line = lines[i].strip()
-            
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
             if '> <details>' in line:
+                if in_commit_block:
+                    # 이전 커밋 블록 저장
+                    commits.append('\n'.join(current_commit))
                 in_commit_block = True
                 current_commit = [line]
+                print(f"Starting new commit block: {line}")
             elif in_commit_block:
                 current_commit.append(line)
                 if '> </details>' in line:
                     commits.append('\n'.join(current_commit))
-                    print(f"Found commit block: {current_commit[0]}")
+                    print(f"Completed commit block: {current_commit[0]}")
                     in_commit_block = False
                     current_commit = []
-            i += 1
+        
+        # 마지막 커밋 블록 처리
+        if in_commit_block and current_commit:
+            commits.append('\n'.join(current_commit))
         
         if commits:
             result['branches'][branch_name] = '\n\n'.join(commits)
             print(f"Parsed {len(commits)} commits from {branch_name}")
+            print("Commits found:")
+            for commit in commits:
+                print(f"- {commit.split('\n')[0]}")
         else:
             print(f"No commits found in branch {branch_name}")
     
@@ -499,26 +509,20 @@ def is_commit_already_logged(commit_message, existing_content):
     """check if the commit is already logged"""
     # extract the title part of the commit message
     commit_title = commit_message.split('\n')[0].strip()
-    commit_body = '\n'.join(commit_message.split('\n')[1:]).strip()
     
     print(f"\n=== Checking for duplicate commit ===")
     print(f"Checking commit: {commit_title}")
     
     # check if the commit is already logged
     for branch_content in existing_content['branches'].values():
-        # filter the commit by title
-        if commit_title in branch_content:
-            print(f"Found matching title in existing content")
-            
-            # compare the body content (optional)
-            if commit_body and commit_body in branch_content:
-                print(f"Found matching body content - considering as duplicate")
-                return True
-            elif not commit_body:
-                print(f"No body content to compare - considering as duplicate based on title")
-                return True
-            else:
-                print(f"Body content differs - not a duplicate")
+        # 각 커밋 블록을 개별적으로 확인
+        commit_blocks = branch_content.split('\n\n')
+        for block in commit_blocks:
+            if '> <summary>' in block:
+                block_title = block.split('> <summary>')[1].split('</summary>')[0].strip()
+                if commit_title in block_title:
+                    print(f"Found matching commit: {block_title}")
+                    return True
     
     print(f"No matching commit found")
     return False
@@ -663,6 +667,37 @@ def process_todo_items(repo, todos, parent_issue_number):
     
     return processed_todos, created_issues
 
+def get_todays_commits(repo, branch, timezone):
+    """Get all commits from today for the specified branch"""
+    tz = pytz.timezone(timezone)
+    today = datetime.now(tz).date()
+    
+    print(f"\n=== Getting Today's Commits for {branch} ===")
+    
+    try:
+        # 브랜치의 커밋들을 가져옴
+        commits = repo.get_commits(sha=branch)
+        todays_commits = []
+        
+        for commit in commits:
+            # 커밋 시간을 지정된 타임존으로 변환
+            commit_date = commit.commit.author.date.astimezone(tz).date()
+            
+            if commit_date == today:
+                if not is_merge_commit_message(commit.commit.message):
+                    todays_commits.append(commit)
+                    print(f"Found commit: [{commit.sha[:7]}] {commit.commit.message.split('\n')[0]}")
+            elif commit_date < today:
+                # 오늘 이전의 커밋이 나오면 중단
+                break
+        
+        print(f"Found {len(todays_commits)} commits for today")
+        return todays_commits
+        
+    except Exception as e:
+        print(f"Error getting commits: {str(e)}")
+        return []
+
 def main():
     # Initialize GitHub token and environment variables
     github_token = os.environ['GITHUB_TOKEN']
@@ -674,26 +709,17 @@ def main():
     # Initialize GitHub API client
     g = Github(github_token)
     
-    # Get commit information from environment variables
+    # Get repository and branch information
     repository = os.environ['GITHUB_REPOSITORY']
     repo = g.get_repo(repository)
-    commit_sha = os.environ['GITHUB_SHA']
-    commit = repo.get_commit(commit_sha)
     branch = os.environ['GITHUB_REF'].replace('refs/heads/', '')
     
-    # Check for excluded commit types
-    if re.match(excluded_pattern, commit.commit.message):
-        print(f"Excluded commit type: {commit.commit.message}")
+    # Get today's commits
+    commits_to_process = get_todays_commits(repo, branch, timezone)
+    
+    if not commits_to_process:
+        print("No commits found for today")
         return
-        
-    # if the commit is a merge commit, process the child commits
-    commits_to_process = []
-    if len(commit.parents) == 2:  # merge commit
-        print("Merge commit detected - processing child commits...")
-        commits_to_process = get_merge_commits(repo, commit)
-
-    if not commits_to_process:  # not a merge commit or failed to get child commits
-        commits_to_process = [commit]
 
     # Search for existing issues
     issues = repo.get_issues(state='open', labels=[issue_label])
@@ -913,7 +939,7 @@ def main():
 
 <div align="center">
 
-## �� Branch Summary
+## 📊 Branch Summary
 
 </div>
 
