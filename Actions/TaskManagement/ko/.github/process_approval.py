@@ -2,6 +2,7 @@ import os
 from github import Github
 from datetime import datetime
 import re
+import json
 
 # 태스크 카테고리 정의
 TASK_CATEGORIES = {
@@ -203,7 +204,7 @@ def update_report_content(old_content, new_task_entry, category_key):
 
 def calculate_progress_stats(body):
     """보고서 내용에서 태스크 진행 상태를 계산합니다."""
-    print("\n=== 진행 상태 계산 ===")
+    print("\n[진행 상태] 계산 시작")
     completed = 0
     in_progress = 0
     total = 0
@@ -217,22 +218,13 @@ def calculate_progress_stats(body):
             elif '🟡 진행중' in line:
                 in_progress += 1
     
-    print(f"완료: {completed}, 진행중: {in_progress}, 총: {total}")
+    print(f"[진행 상태] 완료: {completed}, 진행중: {in_progress}, 총: {total}")
     return completed, in_progress, total
 
 def create_progress_section(completed, in_progress, total):
     """진행 현황 섹션을 생성합니다."""
-    if total == 0:
-        return """### 전체 진행률
-
-```mermaid
-pie title 태스크 진행 상태
-    "진행중" : 0
-    "완료" : 0
-```"""
-    
-    completed_percent = (completed / total) * 100
-    in_progress_percent = (in_progress / total) * 100
+    completed_percent = 0 if total == 0 else (completed / total) * 100
+    in_progress_percent = 0 if total == 0 else (in_progress / total) * 100
     
     return f"""### 전체 진행률
 
@@ -240,8 +232,8 @@ pie title 태스크 진행 상태
 
 ```mermaid
 pie title 태스크 진행 상태
-    "완료" : {completed_percent}
-    "진행중" : {in_progress_percent}
+    "완료" : {completed_percent:.1f}
+    "진행중" : {in_progress_percent:.1f}
 ```"""
 
 def update_progress_section(body):
@@ -337,17 +329,18 @@ def find_daily_log_issue(repo, project_name):
     print(f"\n=== 일일 로그 이슈 검색 ===")
     print(f"프로젝트명: {project_name}")
     
+    # 'daily-log' 라벨이 있는 열린 이슈 검색
     daily_issues = repo.get_issues(state='open', labels=['daily-log'])
-    for issue in daily_issues:
+    daily_list = list(daily_issues)
+    print(f"검색된 일일 로그 이슈 수: {len(daily_list)}")
+    
+    for issue in daily_list:
         print(f"검토 중인 이슈: {issue.title}")
-        # 이슈 제목에서 프로젝트명 부분만 정리하여 비교
-        issue_parts = issue.title.split(' - ')
-        if len(issue_parts) == 2:
-            issue_project = sanitize_project_name(issue_parts[1])
-            if issue_project == project_name:
-                print(f"일일 로그 이슈를 찾았습니다: #{issue.number}")
-                return issue
-            
+        # 프로젝트명으로 매칭
+        if f"- {project_name}" in issue.title:
+            print(f"일일 로그 이슈를 찾았습니다: #{issue.number}")
+            return issue
+    
     print("일일 로그 이슈를 찾지 못했습니다.")
     return None
 
@@ -517,14 +510,17 @@ def process_approval(issue, repo):
             print("보고서 업데이트 완료")
             
             # Daily Log 이슈 찾기 및 TODO 추가
+            print("\n=== Daily Log 처리 시작 ===")
             daily_issue = find_daily_log_issue(repo, project_name)
             if daily_issue:
                 print(f"\n일일 로그 이슈 발견: #{daily_issue.number}")
                 # TODO 항목 생성
                 todo_text = create_task_todo(issue)
+                print(f"생성된 TODO 항목:\n{todo_text}")
                 
                 # 현재 이슈 본문 파싱
                 existing_content = parse_existing_issue(daily_issue.body)
+                print(f"기존 TODO 항목 수: {len(existing_content['todos'])}")
                 
                 # 새로운 TODO 항목 추가
                 new_todos = [(False, line) for line in todo_text.split('\n')]
@@ -535,8 +531,15 @@ def process_approval(issue, repo):
                 
                 # 이슈 본문 업데이트
                 print("\n이슈 본문 업데이트 시작")
-                body_parts = daily_issue.body.split('## 📝 Todo')
-                updated_body = f"{body_parts[0]}## 📝 Todo\n\n{todo_section}"
+                if '## 📝 Todo' in daily_issue.body:
+                    body_parts = daily_issue.body.split('## 📝 Todo')
+                    updated_body = f"{body_parts[0]}## 📝 Todo\n\n{todo_section}"
+                    if len(body_parts) > 1 and '##' in body_parts[1]:
+                        next_section = body_parts[1].split('##', 1)[1]
+                        updated_body += f"\n\n##{next_section}"
+                else:
+                    # Todo 섹션이 없는 경우 마지막에 추가
+                    updated_body = f"{daily_issue.body}\n\n## 📝 Todo\n\n{todo_section}"
                 
                 daily_issue.edit(body=updated_body)
                 daily_issue.create_comment(f"새로운 태스크가 추가되었습니다:\n\n{todo_text}")
@@ -566,36 +569,56 @@ def process_approval(issue, repo):
         issue.create_comment("⏸️ 태스크가 보류되었습니다. 추가 논의가 필요합니다.")
 
 def main():
-    # GitHub 클라이언트 초기화
-    github_token = os.getenv('GITHUB_TOKEN')
-    github = Github(github_token)
-    
-    # 저장소 정보 가져오기
-    repo_name = os.getenv('GITHUB_REPOSITORY')
-    repo = github.get_repo(repo_name)
-    
-    # 이벤트 정보 가져오기
-    event_name = os.getenv('GITHUB_EVENT_NAME')
-    event_path = os.getenv('GITHUB_EVENT_PATH')
-    
-    if event_name == 'issues':
-        # 이슈 번호 가져오기
-        with open(event_path, 'r') as f:
-            import json
+    try:
+        print("\n[시작] 태스크 처리 스크립트")
+        
+        # GitHub 클라이언트 초기화
+        github_token = os.getenv('GITHUB_TOKEN')
+        if not github_token:
+            raise ValueError("GitHub 토큰이 설정되지 않았습니다.")
+        github = Github(github_token)
+        
+        # 저장소 정보 가져오기
+        repo_name = os.getenv('GITHUB_REPOSITORY')
+        if not repo_name:
+            raise ValueError("GitHub 저장소 정보를 찾을 수 없습니다.")
+        repo = github.get_repo(repo_name)
+        print(f"[정보] 저장소: {repo_name}")
+        
+        # 이벤트 정보 가져오기
+        event_name = os.getenv('GITHUB_EVENT_NAME')
+        event_path = os.getenv('GITHUB_EVENT_PATH')
+        print(f"[정보] 이벤트: {event_name}")
+        
+        if not event_path or not os.path.exists(event_path):
+            raise ValueError(f"이벤트 파일을 찾을 수 없습니다: {event_path}")
+        
+        # 이벤트 데이터 읽기
+        with open(event_path, 'r', encoding='utf-8') as f:
             event_data = json.load(f)
             issue_number = event_data['issue']['number']
-            
-            # 이슈 처리
             issue = repo.get_issue(issue_number)
+            labels = [label.name for label in issue.labels]
+            print(f"[처리] 이슈 #{issue_number}: {issue.title}")
             
-            # Daily Log의 TODO 완료 처리인 경우
-            if 'daily-log' in [label.name for label in issue.labels]:
-                body = issue.body
-                for line in body.split('\n'):
-                    if '[x]' in line and 'TSK-' in line and 'spent:' in line:
-                        process_todo_completion(repo, line)
+            # 이벤트 타입에 따른 처리
+            if event_name in ['issues', 'issue_comment']:
+                # 태스크 승인/반려 처리
+                if '✅ 승인완료' in labels:
+                    print("[실행] 태스크 승인 처리")
+                    process_approval(issue, repo)
+                elif '❌ 반려' in labels:
+                    print("[실행] 태스크 반려 처리")
+                    process_approval(issue, repo)
+                elif '⏸️ 보류' in labels:
+                    print("[실행] 태스크 보류 처리")
+                    process_approval(issue, repo)
             else:
-                process_approval(issue, repo)
+                print(f"[오류] 지원하지 않는 이벤트: {event_name}")
+                
+    except Exception as e:
+        print(f"\n[오류] {str(e)}")
+        raise
 
 if __name__ == '__main__':
     main() 
