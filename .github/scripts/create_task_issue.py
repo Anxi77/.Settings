@@ -54,7 +54,6 @@ def read_csv_data(file_path):
     data = {}
     current_section = None
     section_content = []
-    header_section = True  # 헤더 섹션 여부를 추적
     
     encodings = ['utf-8', 'euc-kr']
     
@@ -80,60 +79,18 @@ def read_csv_data(file_path):
                 if line.startswith('[') and line.endswith(']'):
                     # 이전 섹션 처리
                     if current_section and section_content:
-                        section_text = '\n'.join(section_content)
-                        if current_section == '[태스크명]':  # 첫 번째 섹션은 헤더로 처리
-                            reader = csv.reader(StringIO(section_text))
-                            row = next(reader, None)
-                            if row and len(row) >= 2:
-                                data[current_section] = row[1].strip(' ,"')
-                        elif current_section == '[일정계획]':
-                            data[current_section] = section_text
-                        else:
-                            # 일반 섹션 처리
-                            parsed_content = parse_csv_section(section_text)
-                            if parsed_content:
-                                content_lines = []
-                                for row in parsed_content:
-                                    if row:  # 빈 행이 아닌 경우
-                                        content_lines.append(row[0].strip(' ,"'))
-                                data[current_section] = '\n'.join(content_lines)
+                        process_section(current_section, section_content, data)
                     
                     current_section = line
                     section_content = []
-                    header_section = current_section == '[태스크명]'
                     continue
                 
-                if current_section:  # 섹션 내용 수집
-                    section_content.append(line)
-                elif header_section:  # 헤더 정보 처리
-                    try:
-                        reader = csv.reader(StringIO(line))
-                        row = next(reader)
-                        if len(row) >= 2:
-                            key = row[0].strip()
-                            value = row[1].strip()
-                            # 따옴표 제거
-                            key = key.strip(' ,"')
-                            value = value.strip(' ,"')
-                            if key and not key.startswith('['):  # 섹션 시작이 아닌 경우만 저장
-                                data[key] = value
-                    except Exception as e:
-                        print(f"헤더 처리 중 오류 발생: {str(e)}")
-                        continue
+                # 섹션 내용 수집
+                section_content.append(line)
             
             # 마지막 섹션 처리
             if current_section and section_content:
-                section_text = '\n'.join(section_content)
-                if current_section == '[일정계획]':
-                    data[current_section] = section_text
-                else:
-                    parsed_content = parse_csv_section(section_text)
-                    if parsed_content:
-                        content_lines = []
-                        for row in parsed_content:
-                            if row:  # 빈 행이 아닌 경우
-                                content_lines.append(row[0].strip(' ,"'))
-                        data[current_section] = '\n'.join(content_lines)
+                process_section(current_section, section_content, data)
             
             print(f"\n총 {len(data)}개의 항목을 읽었습니다.")
             print("읽은 데이터:", data)
@@ -148,6 +105,46 @@ def read_csv_data(file_path):
     
     raise UnicodeDecodeError(f"지원하는 인코딩({', '.join(encodings)})으로 파일을 읽을 수 없습니다.")
 
+def process_section(section_name, content, data):
+    """섹션 내용을 처리하여 데이터 딕셔너리에 저장합니다."""
+    if not content:
+        return
+        
+    section_text = '\n'.join(content)
+    
+    if section_name == '[태스크명]':
+        # 태스크명 섹션 처리
+        reader = csv.reader(StringIO(content[0]))
+        row = next(reader, None)
+        if row and len(row) >= 2:
+            data[section_name] = row[1].strip(' ,"')
+            # 기본 정보도 함께 처리
+            for line in content[1:]:
+                reader = csv.reader(StringIO(line))
+                row = next(reader, None)
+                if row and len(row) >= 2:
+                    key = row[0].strip(' ,"')
+                    value = row[1].strip(' ,"')
+                    if key and not key.startswith('['):
+                        data[key] = value
+    
+    elif section_name == '[일정계획]':
+        # 일정계획 섹션은 원본 형식 유지
+        data[section_name] = section_text
+    
+    else:
+        # 일반 섹션 처리
+        parsed_content = parse_csv_section(section_text)
+        if parsed_content:
+            content_lines = []
+            for row in parsed_content:
+                if row:  # 빈 행이 아닌 경우
+                    # 콤마로 구분된 모든 필드를 하나의 문장으로 결합
+                    line = ' '.join(field.strip(' ,"') for field in row if field.strip(' ,"'))
+                    if line:
+                        content_lines.append(line)
+            data[section_name] = '\n'.join(content_lines)
+
 def create_issue_body(data, project_name):
     """태스크 제안서 템플릿 형식으로 이슈 본문을 생성합니다."""
     # 일정계획 데이터를 Mermaid 형식으로 변환
@@ -159,29 +156,29 @@ def create_issue_body(data, project_name):
 
 **프로젝트명**: {project_name}  
 **태스크명**: {data['[태스크명]']}  
-**제안자**: {data['제안자']}  
-**제안일**: {data['제안일']}  
-**구현 목표일**: {data['구현목표일']}
+**제안자**: {data.get('제안자', 'TBD')}  
+**제안일**: {data.get('제안일', 'TBD')}  
+**구현 목표일**: {data.get('구현목표일', 'TBD')}
 
 ## 2. 태스크 요약
 
 ### 2.1 목적
 
-{data['[태스크목적]']}
+{data.get('[태스크목적]', 'TBD')}
 
 ### 2.2 범위
 
-{data['[태스크범위]']}
+{data.get('[태스크범위]', 'TBD')}
 
 ## 3. 상세 내용
 
 ### 메인 요구사항
 
-{data['[필수요구사항]']}
+{data.get('[필수요구사항]', 'TBD')}
 
 ### 선택 요구사항
 
-{data['[선택요구사항]']}
+{data.get('[선택요구사항]', 'TBD')}
 
 ## 4. 승인 절차
 
