@@ -75,28 +75,38 @@ def read_csv_data(file_path):
                     
                 # 섹션 시작 확인
                 if line.startswith('[') and ']' in line:
+                    # 이전 섹션 처리
+                    if current_section == '[태스크명]' and section_content:
+                        # 태스크명 섹션의 내용 처리
+                        content_lines = section_content.strip().split('\n')
+                        for content_line in content_lines:
+                            parts = [p.strip() for p in content_line.split(',') if p.strip()]
+                            if len(parts) >= 2:
+                                key = parts[0]
+                                value = parts[1]
+                                if key == '태스크명':
+                                    data[current_section] = value
+                                elif not key.startswith('['):  # 기본 정보 필드
+                                    data[key] = value
+                    
+                    # 새로운 섹션 시작
                     section_name = line.split(',')[0]
                     current_section = section_name
                     section_content = ""
+                    
+                    # 태스크명이 섹션 시작 라인에 있는 경우 처리
+                    if section_name == '[태스크명]':
+                        parts = [p.strip() for p in line.split(',') if p.strip()]
+                        if len(parts) >= 2:
+                            data[section_name] = parts[1]
                     continue
                 
                 # 섹션 내용 수집
                 if current_section:
                     section_content += line + "\n"
                     
-                    # 기본 정보 (태스크명 섹션의 경우)
-                    if current_section == '[태스크명]':
-                        parts = [p.strip() for p in line.split(',') if p.strip()]
-                        if len(parts) >= 2:
-                            key = parts[0]
-                            value = parts[1]
-                            if key == '태스크명':
-                                data[current_section] = value
-                            elif not key.startswith('['):  # 기본 정보 필드
-                                data[key] = value
-                    
                     # 태스크 목적
-                    elif current_section == '[태스크목적]':
+                    if current_section == '[태스크목적]':
                         text = line.split(',')[0].strip()
                         if text and not text.startswith('['):
                             data[current_section] = text
@@ -129,6 +139,19 @@ def read_csv_data(file_path):
                                 'duration': parts[2]
                             })
             
+            # 마지막 섹션 처리
+            if current_section == '[태스크명]' and section_content:
+                content_lines = section_content.strip().split('\n')
+                for line in content_lines:
+                    parts = [p.strip() for p in line.split(',') if p.strip()]
+                    if len(parts) >= 2:
+                        key = parts[0]
+                        value = parts[1]
+                        if key == '태스크명':
+                            data[current_section] = value
+                        elif not key.startswith('['):  # 기본 정보 필드
+                            data[key] = value
+            
             # 데이터 후처리
             for key in data:
                 if isinstance(data[key], list):
@@ -146,11 +169,6 @@ def read_csv_data(file_path):
                     print(f"\n{key}:")
                     print(value)
                     print("-" * 50)
-                
-                # 태스크명이 없는 경우 기본값 설정
-                if '[태스크명]' not in data:
-                    data['[태스크명]'] = 'UI/UX 개선 프로젝트'
-                
                 return data
             
             print("\n데이터가 비어있습니다!")
