@@ -338,17 +338,18 @@ def find_daily_log_issue(repo, project_name):
     print(f"\n=== 일일 로그 이슈 검색 ===")
     print(f"프로젝트명: {project_name}")
     
+    # 'daily-log' 라벨이 있는 열린 이슈 검색
     daily_issues = repo.get_issues(state='open', labels=['daily-log'])
-    for issue in daily_issues:
+    daily_list = list(daily_issues)
+    print(f"검색된 일일 로그 이슈 수: {len(daily_list)}")
+    
+    for issue in daily_list:
         print(f"검토 중인 이슈: {issue.title}")
-        # 이슈 제목에서 프로젝트명 부분만 정리하여 비교
-        issue_parts = issue.title.split(' - ')
-        if len(issue_parts) == 2:
-            issue_project = sanitize_project_name(issue_parts[1])
-            if issue_project == project_name:
-                print(f"일일 로그 이슈를 찾았습니다: #{issue.number}")
-                return issue
-            
+        # 프로젝트명으로 매칭
+        if f"- {project_name}" in issue.title:
+            print(f"일일 로그 이슈를 찾았습니다: #{issue.number}")
+            return issue
+    
     print("일일 로그 이슈를 찾지 못했습니다.")
     return None
 
@@ -578,7 +579,8 @@ def process_approval(issue, repo):
 
 def main():
     try:
-        print("\n=== 스크립트 실행 시작 ===")
+        print("\n[시작] 태스크 처리 스크립트")
+        
         # GitHub 클라이언트 초기화
         github_token = os.getenv('GITHUB_TOKEN')
         if not github_token:
@@ -590,13 +592,12 @@ def main():
         if not repo_name:
             raise ValueError("GitHub 저장소 정보를 찾을 수 없습니다.")
         repo = github.get_repo(repo_name)
+        print(f"[정보] 저장소: {repo_name}")
         
         # 이벤트 정보 가져오기
         event_name = os.getenv('GITHUB_EVENT_NAME')
         event_path = os.getenv('GITHUB_EVENT_PATH')
-        
-        print(f"이벤트 타입: {event_name}")
-        print(f"이벤트 파일 경로: {event_path}")
+        print(f"[정보] 이벤트: {event_name}")
         
         if not event_path or not os.path.exists(event_path):
             raise ValueError(f"이벤트 파일을 찾을 수 없습니다: {event_path}")
@@ -604,35 +605,28 @@ def main():
         # 이벤트 데이터 읽기
         with open(event_path, 'r', encoding='utf-8') as f:
             event_data = json.load(f)
-            print(f"이벤트 데이터: {json.dumps(event_data, indent=2, ensure_ascii=False)}")
-            
-            # 이슈 번호 가져오기
             issue_number = event_data['issue']['number']
-            print(f"처리할 이슈 번호: #{issue_number}")
-            
-            # 이슈 정보 가져오기
             issue = repo.get_issue(issue_number)
             labels = [label.name for label in issue.labels]
-            print(f"이슈 라벨: {labels}")
+            print(f"[처리] 이슈 #{issue_number}: {issue.title}")
             
             # 이벤트 타입에 따른 처리
             if event_name in ['issues', 'issue_comment']:
-                # Daily Log의 TODO 완료 처리
-                if 'daily-log' in labels and any('[x]' in line and 'TSK-' in line and 'spent:' in line for line in issue.body.split('\n')):
-                    print("\n=== Daily Log 완료 처리 시작 ===")
-                    for line in issue.body.split('\n'):
-                        if '[x]' in line and 'TSK-' in line and 'spent:' in line:
-                            process_todo_completion(repo, line)
-                
                 # 태스크 승인/반려 처리
-                if '✅ 승인완료' in labels or '❌ 반려' in labels or '⏸️ 보류' in labels:
-                    print("\n=== 태스크 승인/반려 처리 시작 ===")
+                if '✅ 승인완료' in labels:
+                    print("[실행] 태스크 승인 처리")
+                    process_approval(issue, repo)
+                elif '❌ 반려' in labels:
+                    print("[실행] 태스크 반려 처리")
+                    process_approval(issue, repo)
+                elif '⏸️ 보류' in labels:
+                    print("[실행] 태스크 보류 처리")
                     process_approval(issue, repo)
             else:
-                print(f"처리할 수 없는 이벤트 타입입니다: {event_name}")
+                print(f"[오류] 지원하지 않는 이벤트: {event_name}")
                 
     except Exception as e:
-        print(f"\n오류 발생: {str(e)}")
+        print(f"\n[오류] {str(e)}")
         raise
 
 if __name__ == '__main__':
