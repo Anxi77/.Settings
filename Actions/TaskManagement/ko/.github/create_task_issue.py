@@ -54,6 +54,7 @@ def read_csv_data(file_path):
     data = {}
     current_section = None
     section_content = []
+    header_section = True  # 헤더 섹션 여부를 추적
     
     encodings = ['utf-8', 'euc-kr']
     
@@ -74,31 +75,37 @@ def read_csv_data(file_path):
             for line in lines:
                 if not line:  # 빈 줄 건너뛰기
                     continue
-                    
-                if line.startswith('[') and line.endswith(']'):  # 새로운 섹션 시작
+                
+                # 섹션 시작 확인
+                if line.startswith('[') and line.endswith(']'):
+                    # 이전 섹션 처리
                     if current_section and section_content:
-                        # 섹션 내용 파싱
                         section_text = '\n'.join(section_content)
-                        parsed_content = parse_csv_section(section_text)
-                        if parsed_content:
-                            # 섹션 내용 저장
-                            if current_section == '[일정계획]':
-                                data[current_section] = section_text
-                            else:
-                                # 각 행의 첫 번째 필드만 추출
+                        if current_section == '[태스크명]':  # 첫 번째 섹션은 헤더로 처리
+                            reader = csv.reader(StringIO(section_text))
+                            row = next(reader, None)
+                            if row and len(row) >= 2:
+                                data[current_section] = row[1].strip(' ,"')
+                        elif current_section == '[일정계획]':
+                            data[current_section] = section_text
+                        else:
+                            # 일반 섹션 처리
+                            parsed_content = parse_csv_section(section_text)
+                            if parsed_content:
                                 content_lines = []
                                 for row in parsed_content:
                                     if row:  # 빈 행이 아닌 경우
-                                        content_lines.append(row[0])
+                                        content_lines.append(row[0].strip(' ,"'))
                                 data[current_section] = '\n'.join(content_lines)
-                        
-                        section_content = []
+                    
                     current_section = line
+                    section_content = []
+                    header_section = current_section == '[태스크명]'
                     continue
                 
                 if current_section:  # 섹션 내용 수집
                     section_content.append(line)
-                else:  # 헤더 정보 처리
+                elif header_section:  # 헤더 정보 처리
                     try:
                         reader = csv.reader(StringIO(line))
                         row = next(reader)
@@ -106,11 +113,9 @@ def read_csv_data(file_path):
                             key = row[0].strip()
                             value = row[1].strip()
                             # 따옴표 제거
-                            if key.startswith('"') and key.endswith('"'):
-                                key = key[1:-1]
-                            if value.startswith('"') and value.endswith('"'):
-                                value = value[1:-1]
-                            if key:  # 키가 비어있지 않은 경우만 저장
+                            key = key.strip(' ,"')
+                            value = value.strip(' ,"')
+                            if key and not key.startswith('['):  # 섹션 시작이 아닌 경우만 저장
                                 data[key] = value
                     except Exception as e:
                         print(f"헤더 처리 중 오류 발생: {str(e)}")
@@ -119,18 +124,18 @@ def read_csv_data(file_path):
             # 마지막 섹션 처리
             if current_section and section_content:
                 section_text = '\n'.join(section_content)
-                parsed_content = parse_csv_section(section_text)
-                if parsed_content:
-                    if current_section == '[일정계획]':
-                        data[current_section] = section_text
-                    else:
+                if current_section == '[일정계획]':
+                    data[current_section] = section_text
+                else:
+                    parsed_content = parse_csv_section(section_text)
+                    if parsed_content:
                         content_lines = []
                         for row in parsed_content:
                             if row:  # 빈 행이 아닌 경우
-                                content_lines.append(row[0])
+                                content_lines.append(row[0].strip(' ,"'))
                         data[current_section] = '\n'.join(content_lines)
             
-            print(f"\n총 {len(data)}개의 섹션을 읽었습니다.")
+            print(f"\n총 {len(data)}개의 항목을 읽었습니다.")
             print("읽은 데이터:", data)
             return data
             
