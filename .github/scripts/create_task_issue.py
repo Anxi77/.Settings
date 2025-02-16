@@ -92,7 +92,7 @@ def read_csv_data(file_path):
                             value = parts[1]
                             if key == '태스크명':
                                 data[current_section] = value
-                            else:
+                            elif not key.startswith('['):  # 기본 정보 필드
                                 data[key] = value
                     
                     # 태스크 목적
@@ -146,6 +146,11 @@ def read_csv_data(file_path):
                     print(f"\n{key}:")
                     print(value)
                     print("-" * 50)
+                
+                # 태스크명이 없는 경우 기본값 설정
+                if '[태스크명]' not in data:
+                    data['[태스크명]'] = 'UI/UX 개선 프로젝트'
+                
                 return data
             
             print("\n데이터가 비어있습니다!")
