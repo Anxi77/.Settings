@@ -204,7 +204,7 @@ def update_report_content(old_content, new_task_entry, category_key):
 
 def calculate_progress_stats(body):
     """보고서 내용에서 태스크 진행 상태를 계산합니다."""
-    print("\n=== 진행 상태 계산 ===")
+    print("\n[진행 상태] 계산 시작")
     completed = 0
     in_progress = 0
     total = 0
@@ -218,22 +218,13 @@ def calculate_progress_stats(body):
             elif '🟡 진행중' in line:
                 in_progress += 1
     
-    print(f"완료: {completed}, 진행중: {in_progress}, 총: {total}")
+    print(f"[진행 상태] 완료: {completed}, 진행중: {in_progress}, 총: {total}")
     return completed, in_progress, total
 
 def create_progress_section(completed, in_progress, total):
     """진행 현황 섹션을 생성합니다."""
-    if total == 0:
-        return """### 전체 진행률
-
-```mermaid
-pie title 태스크 진행 상태
-    "진행중" : 0
-    "완료" : 0
-```"""
-    
-    completed_percent = (completed / total) * 100
-    in_progress_percent = (in_progress / total) * 100
+    completed_percent = 0 if total == 0 else (completed / total) * 100
+    in_progress_percent = 0 if total == 0 else (in_progress / total) * 100
     
     return f"""### 전체 진행률
 
@@ -241,8 +232,8 @@ pie title 태스크 진행 상태
 
 ```mermaid
 pie title 태스크 진행 상태
-    "완료" : {completed_percent}
-    "진행중" : {in_progress_percent}
+    "완료" : {completed_percent:.1f}
+    "진행중" : {in_progress_percent:.1f}
 ```"""
 
 def update_progress_section(body):
