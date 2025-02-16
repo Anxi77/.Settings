@@ -337,19 +337,17 @@ def find_daily_log_issue(repo, project_name):
     print(f"\n=== 일일 로그 이슈 검색 ===")
     print(f"프로젝트명: {project_name}")
     
-    # 오늘 날짜로 이슈 제목 생성
-    today = datetime.now().strftime('%Y-%m-%d')
-    expected_title = f"📅 Daily Development Log ({today}) - {project_name}"
-    print(f"검색할 이슈 제목: {expected_title}")
-    
-    # 'daily-log' 라벨이 있는 열린 이슈 검색
     daily_issues = repo.get_issues(state='open', labels=['daily-log'])
     for issue in daily_issues:
         print(f"검토 중인 이슈: {issue.title}")
-        if issue.title == expected_title:
-            print(f"일일 로그 이슈를 찾았습니다: #{issue.number}")
-            return issue
-    
+        # 이슈 제목에서 프로젝트명 부분만 정리하여 비교
+        issue_parts = issue.title.split(' - ')
+        if len(issue_parts) == 2:
+            issue_project = sanitize_project_name(issue_parts[1])
+            if issue_project == project_name:
+                print(f"일일 로그 이슈를 찾았습니다: #{issue.number}")
+                return issue
+            
     print("일일 로그 이슈를 찾지 못했습니다.")
     return None
 
@@ -519,14 +517,17 @@ def process_approval(issue, repo):
             print("보고서 업데이트 완료")
             
             # Daily Log 이슈 찾기 및 TODO 추가
+            print("\n=== Daily Log 처리 시작 ===")
             daily_issue = find_daily_log_issue(repo, project_name)
             if daily_issue:
                 print(f"\n일일 로그 이슈 발견: #{daily_issue.number}")
                 # TODO 항목 생성
                 todo_text = create_task_todo(issue)
+                print(f"생성된 TODO 항목:\n{todo_text}")
                 
                 # 현재 이슈 본문 파싱
                 existing_content = parse_existing_issue(daily_issue.body)
+                print(f"기존 TODO 항목 수: {len(existing_content['todos'])}")
                 
                 # 새로운 TODO 항목 추가
                 new_todos = [(False, line) for line in todo_text.split('\n')]
@@ -537,8 +538,15 @@ def process_approval(issue, repo):
                 
                 # 이슈 본문 업데이트
                 print("\n이슈 본문 업데이트 시작")
-                body_parts = daily_issue.body.split('## 📝 Todo')
-                updated_body = f"{body_parts[0]}## 📝 Todo\n\n{todo_section}"
+                if '## 📝 Todo' in daily_issue.body:
+                    body_parts = daily_issue.body.split('## 📝 Todo')
+                    updated_body = f"{body_parts[0]}## 📝 Todo\n\n{todo_section}"
+                    if len(body_parts) > 1 and '##' in body_parts[1]:
+                        next_section = body_parts[1].split('##', 1)[1]
+                        updated_body += f"\n\n##{next_section}"
+                else:
+                    # Todo 섹션이 없는 경우 마지막에 추가
+                    updated_body = f"{daily_issue.body}\n\n## 📝 Todo\n\n{todo_section}"
                 
                 daily_issue.edit(body=updated_body)
                 daily_issue.create_comment(f"새로운 태스크가 추가되었습니다:\n\n{todo_text}")
@@ -596,7 +604,8 @@ def main():
                 for line in body.split('\n'):
                     if '[x]' in line and 'TSK-' in line and 'spent:' in line:
                         process_todo_completion(repo, line)
-            else:
+            # 태스크 승인/반려 처리인 경우
+            elif any(label in [label.name for label in issue.labels] for label in ['✅ 승인완료', '❌ 반려', '⏸️ 보류']):
                 process_approval(issue, repo)
 
 if __name__ == '__main__':
