@@ -1,9 +1,6 @@
-import os
-from github import Github
-from pathlib import Path
-import re
 import csv
 from io import StringIO
+from pathlib import Path
 
 def parse_csv_section(section_content):
     """CSV 섹션 내용을 파싱합니다."""
@@ -39,15 +36,68 @@ def parse_csv_section(section_content):
     
     return result
 
-def convert_schedule_to_mermaid(schedule_data):
-    """일정계획 데이터를 Mermaid 간트 차트 형식으로 변환합니다."""
-    tasks = []
-    for item in schedule_data:
-        task = item['task']
-        date = item['date']
-        duration = item['duration']
-        tasks.append(f"    {task} :{date}, {duration}")
-    return '\n'.join(tasks)
+def process_section(section_name, content, data):
+    """섹션 내용을 처리하여 데이터 딕셔너리에 저장합니다."""
+    if not content:
+        print(f"섹션 {section_name}의 내용이 비어있습니다.")
+        return
+        
+    print(f"\n처리 중인 섹션: {section_name}")
+    print(f"원본 섹션 내용: {content}")
+    
+    # 섹션 이름이 포함된 항목 제거
+    filtered_content = []
+    for parts in content:
+        if not any(part.startswith('[') and part.endswith(']') for part in parts):
+            filtered_content.append(parts)
+    print(f"필터링된 섹션 내용: {filtered_content}")
+    
+    if not filtered_content:  # 내용이 없으면 처리하지 않음
+        print(f"섹션 {section_name}의 필터링된 내용이 비어있습니다.")
+        return
+    
+    try:
+        if section_name == '[태스크명]':
+            # 기본 정보 처리
+            for parts in filtered_content:
+                if len(parts) >= 2:
+                    key = parts[0]
+                    value = parts[1]
+                    if key == '태스크명':
+                        data[section_name] = value
+                        print(f"태스크명 설정: {value}")
+                    else:
+                        data[f"[{key}]"] = value
+                        print(f"기본 정보 추가: {key} = {value}")
+        
+        elif section_name == '[일정계획]':
+            # 일정계획은 원본 형식 유지
+            formatted_lines = []
+            for parts in filtered_content:
+                if len(parts) >= 2:
+                    task = parts[0]
+                    schedule = ' | '.join(parts[1:])
+                    formatted_lines.append(f"{task}: {schedule}")
+            if formatted_lines:
+                data[section_name] = '\n'.join(formatted_lines)
+                print(f"일정계획 저장: {len(formatted_lines)}개 항목")
+        
+        else:
+            # 일반 섹션은 항목별로 정리
+            formatted_lines = []
+            for parts in filtered_content:
+                if parts:
+                    formatted_lines.append(f"- {' | '.join(parts)}")
+            
+            if formatted_lines:
+                data[section_name] = '\n'.join(formatted_lines)
+                print(f"섹션 내용 저장: {len(formatted_lines)}개 항목")
+        
+        print(f"섹션 {section_name} 처리 후 데이터 상태: {data}")
+        
+    except Exception as e:
+        print(f"섹션 {section_name} 처리 중 오류 발생: {str(e)}")
+        raise
 
 def read_csv_data(file_path):
     """CSV 파일에서 태스크 데이터를 읽어옵니다."""
@@ -161,94 +211,10 @@ def read_csv_data(file_path):
     
     raise ValueError("파일을 읽을 수 없거나 데이터가 없습니다.")
 
-def create_issue_body(data, project_name):
-    """태스크 제안서 템플릿 형식으로 이슈 본문을 생성합니다."""
-    # 일정계획 데이터를 Mermaid 형식으로 변환
-    schedule_mermaid = convert_schedule_to_mermaid(data['[일정계획]'])
-    
-    body = f"""# 프로젝트 태스크 제안서
-
-## 1. 제안 개요
-
-**프로젝트명**: {project_name}  
-**태스크명**: {data['[태스크명]']}  
-**제안자**: {data.get('제안자', 'TBD')}  
-**제안일**: {data.get('제안일', 'TBD')}  
-**구현 목표일**: {data.get('구현목표일', 'TBD')}
-
-## 2. 태스크 요약
-
-### 2.1 목적
-
-{data.get('[태스크목적]', 'TBD')}
-
-### 2.2 범위
-
-{data.get('[태스크범위]', 'TBD')}
-
-## 3. 상세 내용
-
-### 메인 요구사항
-
-{data.get('[필수요구사항]', 'TBD')}
-
-### 선택 요구사항
-
-{data.get('[선택요구사항]', 'TBD')}
-
-## 4. 승인 절차
-
-이 태스크의 승인을 위해 다음 중 하나의 라벨을 추가해주세요:
-- `✅ 승인완료`: 태스크를 승인하고 진행을 시작합니다.
-- `❌ 반려`: 태스크를 반려하고 수정을 요청합니다.
-- `⏸️ 보류`: 태스크를 보류하고 추가 논의가 필요합니다.
-
-## 5. 일정 계획
-
-```mermaid
-gantt
-    title 태스크 구현 일정
-    dateFormat YYYY-MM-DD
-    section 개발
-{schedule_mermaid}
-```
-"""
-    return body
-
-def sanitize_project_name(name):
-    """프로젝트 이름에서 특수문자를 제거하고 적절한 형식으로 변환합니다."""
-    print(f"\n=== 프로젝트 이름 정리 ===")
-    print(f"원본 이름: {name}")
-    
-    # 시작 부분의 . 제거
-    while name.startswith('.'):
-        name = name[1:]
-    
-    # 특수문자를 공백으로 변환
-    sanitized = re.sub(r'[^\w\s-]', ' ', name)
-    
-    # 연속된 공백을 하나로 변환하고 앞뒤 공백 제거
-    sanitized = ' '.join(sanitized.split())
-    
-    print(f"변환된 이름: {sanitized}")
-    return sanitized
-
 def main():
-    # GitHub 클라이언트 초기화
-    github_token = os.getenv('GITHUB_TOKEN')
-    github = Github(github_token)
-    
-    # 저장소 정보 가져오기
-    repo_name = os.getenv('GITHUB_REPOSITORY')
-    repo = github.get_repo(repo_name)
-    project_name = sanitize_project_name(repo.name)  # 리포지토리명 정리
-    
-    print(f"\n=== 저장소 정보 ===")
-    print(f"원본 저장소명: {repo.name}")
-    print(f"정리된 프로젝트명: {project_name}")
-    
     # CSV 파일 찾기
-    csv_dir = Path('TaskProposals')
+    base_dir = Path('D:/ANXI/Dev/Git/.Settings')
+    csv_dir = base_dir / 'TaskProposals'
     print(f"\n=== CSV 파일 검색 ===")
     print(f"검색 디렉토리: {csv_dir.absolute()}")
     
@@ -257,23 +223,11 @@ def main():
             print(f"\n발견된 CSV 파일: {csv_file}")
             # CSV 데이터 읽기
             data = read_csv_data(csv_file)
-            
-            # 이슈 생성
-            issue_title = f"[{project_name}] {data['[태스크명]']}"
-            print(f"생성할 이슈 제목: {issue_title}")
-            
-            issue_body = create_issue_body(data, project_name)
-            
-            issue = repo.create_issue(
-                title=issue_title,
-                body=issue_body,
-                labels=['⌛ 검토대기']
-            )
-            print(f"이슈 생성 완료: #{issue.number}")
-            
-            # 처리된 CSV 파일 이동 또는 삭제
-            os.remove(csv_file)
-            print(f"CSV 파일 삭제 완료: {csv_file}")
+            print("\n=== 파싱 결과 ===")
+            for key, value in data.items():
+                print(f"{key}:")
+                print(value)
+                print("-" * 50)
 
 if __name__ == '__main__':
     main() 

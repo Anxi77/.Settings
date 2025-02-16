@@ -40,20 +40,20 @@ def parse_csv_section(section_content):
     return result
 
 def convert_schedule_to_mermaid(schedule_data):
-    """CSV 형식의 일정 데이터를 Mermaid 간트 차트 형식으로 변환합니다."""
+    """일정계획 데이터를 Mermaid 간트 차트 형식으로 변환합니다."""
     tasks = []
-    parsed_data = parse_csv_section(schedule_data)
-    for row in parsed_data:
-        if len(row) >= 3:  # 태스크명, 날짜, 기간이 모두 있는 경우만 처리
-            task, date, duration = row[:3]
-            tasks.append(f"    {task} :{date}, {duration}")
+    for item in schedule_data:
+        task = item['task']
+        date = item['date']
+        duration = item['duration']
+        tasks.append(f"    {task} :{date}, {duration}")
     return '\n'.join(tasks)
 
 def read_csv_data(file_path):
     """CSV 파일에서 태스크 데이터를 읽어옵니다."""
     data = {}
     current_section = None
-    section_content = []
+    section_content = ""
     
     encodings = ['utf-8', 'euc-kr']
     
@@ -63,38 +63,94 @@ def read_csv_data(file_path):
             print(f"파일 경로: {file_path}")
             
             with open(file_path, 'r', encoding=encoding) as f:
-                content = f.read()
+                lines = f.readlines()
             
             print(f"파일 읽기 성공 (인코딩: {encoding})")
             
-            # 개행 문자 정규화
-            content = content.replace('\r\n', '\n')
-            lines = [line.strip() for line in content.split('\n')]
-            
+            # 기본 정보 처리
             for line in lines:
+                line = line.strip()
                 if not line:  # 빈 줄 건너뛰기
                     continue
-                
-                # 섹션 시작 확인
-                if line.startswith('[') and line.endswith(']'):
-                    # 이전 섹션 처리
-                    if current_section and section_content:
-                        process_section(current_section, section_content, data)
                     
-                    current_section = line
-                    section_content = []
+                # 섹션 시작 확인
+                if line.startswith('[') and ']' in line:
+                    section_name = line.split(',')[0]
+                    current_section = section_name
+                    section_content = ""
                     continue
                 
                 # 섹션 내용 수집
-                section_content.append(line)
+                if current_section:
+                    section_content += line + "\n"
+                    
+                    # 기본 정보 (태스크명 섹션의 경우)
+                    if current_section == '[태스크명]':
+                        parts = [p.strip() for p in line.split(',') if p.strip()]
+                        if len(parts) >= 2:
+                            key = parts[0]
+                            value = parts[1]
+                            if key == '태스크명':
+                                data[current_section] = value
+                            else:
+                                data[key] = value
+                    
+                    # 태스크 목적
+                    elif current_section == '[태스크목적]':
+                        text = line.split(',')[0].strip()
+                        if text and not text.startswith('['):
+                            data[current_section] = text
+                    
+                    # 태스크 범위
+                    elif current_section == '[태스크범위]':
+                        parts = [p.strip() for p in line.split(',') if p.strip()]
+                        if parts and not any(p.startswith('[') for p in parts):
+                            if current_section not in data:
+                                data[current_section] = []
+                            data[current_section].extend(parts)
+                    
+                    # 필수/선택 요구사항
+                    elif current_section in ['[필수요구사항]', '[선택요구사항]']:
+                        parts = [p.strip() for p in line.split(',') if p.strip()]
+                        if parts and not any(p.startswith('[') for p in parts):
+                            if current_section not in data:
+                                data[current_section] = []
+                            data[current_section].extend(parts)
+                    
+                    # 일정계획
+                    elif current_section == '[일정계획]':
+                        parts = [p.strip() for p in line.split(',') if p.strip()]
+                        if len(parts) >= 3 and not any(p.startswith('[') for p in parts):
+                            if current_section not in data:
+                                data[current_section] = []
+                            data[current_section].append({
+                                'task': parts[0],
+                                'date': parts[1],
+                                'duration': parts[2]
+                            })
             
-            # 마지막 섹션 처리
-            if current_section and section_content:
-                process_section(current_section, section_content, data)
+            # 데이터 후처리
+            for key in data:
+                if isinstance(data[key], list):
+                    if key == '[일정계획]':
+                        # 일정계획은 그대로 둠
+                        pass
+                    else:
+                        # 리스트 항목들을 문자열로 변환
+                        data[key] = '\n'.join(f"- {item}" for item in data[key])
             
-            print(f"\n총 {len(data)}개의 항목을 읽었습니다.")
-            print("읽은 데이터:", data)
-            return data
+            if data:  # 데이터가 성공적으로 파싱된 경우
+                print(f"\n총 {len(data)}개의 항목을 읽었습니다.")
+                print("\n=== 파싱된 데이터 ===")
+                for key, value in data.items():
+                    print(f"\n{key}:")
+                    print(value)
+                    print("-" * 50)
+                return data
+            
+            print("\n데이터가 비어있습니다!")
+            print(f"현재 데이터 상태: {data}")
+            continue  # 다음 인코딩으로 시도
             
         except UnicodeDecodeError:
             print(f"{encoding} 인코딩으로 읽기 실패")
@@ -103,47 +159,7 @@ def read_csv_data(file_path):
             print(f"파일 처리 중 오류 발생: {str(e)}")
             continue
     
-    raise UnicodeDecodeError(f"지원하는 인코딩({', '.join(encodings)})으로 파일을 읽을 수 없습니다.")
-
-def process_section(section_name, content, data):
-    """섹션 내용을 처리하여 데이터 딕셔너리에 저장합니다."""
-    if not content:
-        return
-        
-    section_text = '\n'.join(content)
-    
-    if section_name == '[태스크명]':
-        # 태스크명 섹션 처리
-        reader = csv.reader(StringIO(content[0]))
-        row = next(reader, None)
-        if row and len(row) >= 2:
-            data[section_name] = row[1].strip(' ,"')
-            # 기본 정보도 함께 처리
-            for line in content[1:]:
-                reader = csv.reader(StringIO(line))
-                row = next(reader, None)
-                if row and len(row) >= 2:
-                    key = row[0].strip(' ,"')
-                    value = row[1].strip(' ,"')
-                    if key and not key.startswith('['):
-                        data[key] = value
-    
-    elif section_name == '[일정계획]':
-        # 일정계획 섹션은 원본 형식 유지
-        data[section_name] = section_text
-    
-    else:
-        # 일반 섹션 처리
-        parsed_content = parse_csv_section(section_text)
-        if parsed_content:
-            content_lines = []
-            for row in parsed_content:
-                if row:  # 빈 행이 아닌 경우
-                    # 콤마로 구분된 모든 필드를 하나의 문장으로 결합
-                    line = ' '.join(field.strip(' ,"') for field in row if field.strip(' ,"'))
-                    if line:
-                        content_lines.append(line)
-            data[section_name] = '\n'.join(content_lines)
+    raise ValueError("파일을 읽을 수 없거나 데이터가 없습니다.")
 
 def create_issue_body(data, project_name):
     """태스크 제안서 템플릿 형식으로 이슈 본문을 생성합니다."""
