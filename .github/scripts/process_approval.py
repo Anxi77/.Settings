@@ -337,17 +337,19 @@ def find_daily_log_issue(repo, project_name):
     print(f"\n=== 일일 로그 이슈 검색 ===")
     print(f"프로젝트명: {project_name}")
     
+    # 오늘 날짜로 이슈 제목 생성
+    today = datetime.now().strftime('%Y-%m-%d')
+    expected_title = f"📅 Daily Development Log ({today}) - {project_name}"
+    print(f"검색할 이슈 제목: {expected_title}")
+    
+    # 'daily-log' 라벨이 있는 열린 이슈 검색
     daily_issues = repo.get_issues(state='open', labels=['daily-log'])
     for issue in daily_issues:
         print(f"검토 중인 이슈: {issue.title}")
-        # 이슈 제목에서 프로젝트명 부분만 정리하여 비교
-        issue_parts = issue.title.split(' - ')
-        if len(issue_parts) == 2:
-            issue_project = sanitize_project_name(issue_parts[1])
-            if issue_project == project_name:
-                print(f"일일 로그 이슈를 찾았습니다: #{issue.number}")
-                return issue
-            
+        if issue.title == expected_title:
+            print(f"일일 로그 이슈를 찾았습니다: #{issue.number}")
+            return issue
+    
     print("일일 로그 이슈를 찾지 못했습니다.")
     return None
 
