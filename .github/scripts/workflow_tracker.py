@@ -41,41 +41,45 @@ def parse_commit_message(message):
 
 class CategoryManager:
     def __init__(self):
-        self._categories = {'general': 'General'}  # lowercase -> original case mapping
+        self._categories = {}
         self._current = 'General'
+        self.add_category('General')  # 기본 카테고리 초기화
     
     def add_category(self, category):
-        """Add a new category or get existing one"""
+        """카테고리 추가 또는 기존 카테고리 반환"""
         if not category:
-            return self._categories['general']
+            return self._categories['General']
             
         category = category.strip()
-        category_lower = category.lower()
-        
-        if category_lower not in self._categories:
-            self._categories[category_lower] = category
-        
-        return self._categories[category_lower]
+        if category not in self._categories:
+            self._categories[category] = []
+        return category
     
-    def get_category(self, category):
-        """Get original case of category"""
-        if not category:
-            return self._categories['general']
-            
-        category_lower = category.lower()
-        return self._categories.get(category_lower, category)
+    def add_todo(self, category, todo_item):
+        """카테고리에 TODO 항목 추가"""
+        category = self.add_category(category)
+        if todo_item not in self._categories[category]:
+            self._categories[category].append(todo_item)
+    
+    def get_todos(self, category=None):
+        """특정 카테고리 또는 전체 TODO 항목 반환"""
+        if category:
+            return self._categories.get(category, [])
+        return self._categories
     
     def set_current(self, category):
-        """Set current category"""
-        if not category:
-            self._current = self._categories['general']
-        else:
-            self._current = self.add_category(category)
+        """현재 카테고리 설정"""
+        self._current = self.add_category(category)
     
     @property
     def current(self):
-        """Get current category"""
+        """현재 카테고리 반환"""
         return self._current
+
+    @property
+    def categories(self):
+        """모든 카테고리 반환"""
+        return list(self._categories.keys())
 
 def parse_categorized_todos(text):
     """Parse todos with categories"""
@@ -307,45 +311,51 @@ def parse_existing_issue(body):
     
     return result
 
+def convert_to_checkbox_list(text):
+    """TODO 텍스트를 체크박스 리스트로 변환"""
+    if not text:
+        return ''
+    
+    category_manager = CategoryManager()
+    lines = []
+    
+    for line in text.strip().split('\n'):
+        line = line.strip()
+        if not line:
+            continue
+        
+        if line.startswith('@'):
+            category = line[1:].strip()
+            category_manager.set_current(category)
+            lines.append(f"@{category}")
+        elif line.startswith(('-', '*')):
+            todo_text = line[1:].strip()
+            if not (todo_text.startswith('[ ]') or todo_text.startswith('[x]')):
+                todo_text = f"[ ] {todo_text}"
+            
+            category_manager.add_todo(category_manager.current, todo_text)
+            lines.append(f"- {todo_text}")
+    
+    return '\n'.join(lines)
+
 def merge_todos(existing_todos, new_todos):
-    """Merge two lists of todos, avoiding duplicates and preserving order and state"""
+    """TODO 리스트 병합"""
+    category_manager = CategoryManager()
     result = []
-    todo_map = {}  # text -> (category, index)
-    categories = {}  # category -> list of todos
-    current_category = 'General'
     
-    # initialize General category
-    categories['General'] = []
-    
-    # process all categories and todos
-    def process_todos(todos, update_existing=False):
-        nonlocal current_category
+    def process_todos(todos):
+        current_category = 'General'
         for checked, text in todos:
             if text.startswith('@'):
                 current_category = text[1:].strip()
-                if current_category not in categories:
-                    categories[current_category] = []
+                category_manager.set_current(current_category)
                 result.append((False, f"@{current_category}"))
-                continue
-            
-            # if the todo already exists
-            if text in todo_map:
-                if update_existing:
-                    existing_cat, existing_idx = todo_map[text]
-                    if checked:  # update the checked status
-                        categories[existing_cat][existing_idx] = (True, text)
-                continue
-            
-            # add new todo
-            todo_map[text] = (current_category, len(categories[current_category]))
-            categories[current_category].append((checked, text))
-            result.append((checked, text))
+            else:
+                category_manager.add_todo(current_category, (checked, text))
+                result.append((checked, text))
     
-    # process existing todos
-    process_todos(existing_todos, True)
-    
-    # process new todos
-    process_todos(new_todos, True)
+    process_todos(existing_todos)
+    process_todos(new_todos)
     
     return result
 
@@ -355,110 +365,37 @@ def normalize_category(category):
         return 'General'
     return category.strip().replace(' ', '_')
 
-def convert_to_checkbox_list(text):
-    """Convert text to checkbox list with categories"""
-    if not text:
-        print("DEBUG: No text to convert to checkbox list")
-        return ''
-    
-    print("\n=== Converting to Checkbox List ===")
-    print(f"Input text:\n{text}")
-    
-    lines = []
-    current_category = None
-    
-    for line in text.strip().split('\n'):
-        line = line.strip()
-        if not line:
-            continue
-        
-        if line.startswith('@'):
-            # 카테고리 정규화
-            current_category = normalize_category(line[1:])
-            lines.append(f"@{current_category}")
-            print(f"Found category: @{current_category}")
-        elif line.startswith(('-', '*')):
-            todo_text = line[1:].strip()
-            # 체크박스가 이미 있는지 확인
-            if not (todo_text.startswith('[ ]') or todo_text.startswith('[x]')):
-                todo_text = f"[ ] {todo_text}"
-            
-            if not current_category:
-                current_category = 'General'
-                lines.append(f"@{current_category}")
-                print(f"Using default category: @{current_category}")
-            
-            lines.append(f"- {todo_text}")
-            print(f"Added todo item to @{current_category}: {todo_text}")
-    
-    result = '\n'.join(lines)
-    print(f"\nConverted result:\n{result}")
-    return result
-
 def create_todo_section(todos):
-    """Create todo section with categories"""
+    """TODO 섹션 생성"""
     if not todos:
         return ''
     
-    print("\n=== Creating Todo Section ===")
+    category_manager = CategoryManager()
     
-    # process categorized todos
-    categorized = {}
-    current_category = None
-    
-    # 카테고리별로 todo 항목 정리
+    # TODO 항목 분류
     for checked, todo_text in todos:
-        print(f"Processing todo: {todo_text}")
-        
         if todo_text.startswith('@'):
-            current_category = todo_text[1:].strip()  # @ 제거하고 카테고리 이름 사용
-            print(f"Found category: {current_category}")
-            if current_category not in categorized:
-                categorized[current_category] = []
-            continue
-            
-        if not current_category:
-            current_category = 'General'
-            print(f"Using default category: {current_category}")
-        
-        if current_category not in categorized:
-            categorized[current_category] = []
-        
-        # 체크박스 처리
-        if todo_text.startswith('[ ]') or todo_text.startswith('[x]'):
-            # 이미 체크박스가 있는 경우
-            is_checked = todo_text.startswith('[x]')
-            text = todo_text[4:].strip()  # 체크박스 제거
-            categorized[current_category].append((is_checked, text))
+            current_category = todo_text[1:].strip()
+            category_manager.set_current(current_category)
         else:
-            # 체크박스가 없는 경우
-            categorized[current_category].append((checked, todo_text))
-        print(f"Added to category '{current_category}': {todo_text}")
+            category_manager.add_todo(category_manager.current, (checked, todo_text))
     
-    # process categorized todos
+    # 카테고리별 섹션 생성
     sections = []
-    
-    # Process all categories (General first, then others alphabetically)
-    categories = sorted(categorized.keys())
-    if 'General' in categories:
-        categories.remove('General')
-        categories = ['General'] + categories
+    categories = ['General'] + sorted(cat for cat in category_manager.categories if cat != 'General')
     
     for category in categories:
-        todos = categorized[category]
-        if not todos:  # Skip empty categories
+        todos = category_manager.get_todos(category)
+        if not todos:
             continue
-            
+        
         completed = sum(1 for checked, _ in todos if checked)
         total = len(todos)
-        print(f"\nProcessing category: {category}")
-        print(f"Items in category: {total} (Completed: {completed})")
         
         todo_lines = []
         for checked, text in todos:
             checkbox = '[x]' if checked else '[ ]'
             todo_lines.append(f"- {checkbox} {text}")
-            print(f"Added todo line: {text}")
         
         section = f'''<details>
 <summary><h3 style="display: inline;">📑 {category} ({completed}/{total})</h3></summary>
@@ -468,13 +405,8 @@ def create_todo_section(todos):
 ⚫
 </details>'''
         sections.append(section)
-        print(f"Created details section for {category}")
     
-    # Add extra newline between sections for better readability
-    result = '\n\n'.join(sections)
-    print("\nFinal todo section:")
-    print(result)
-    return result
+    return '\n\n'.join(sections)
 
 def get_previous_day_todos(repo, issue_label, current_date):
     """Get unchecked todos from the previous day's issue"""
@@ -733,7 +665,7 @@ def main():
     # Initialize GitHub token and environment variables
     github_token = os.environ['GITHUB_TOKEN']
     timezone = os.environ.get('TIMEZONE', 'Asia/Seoul')
-    issue_prefix = os.environ.get('ISSUE_PREFIX', '📊')
+    issue_prefix = os.environ.get('ISSUE_PREFIX', '📅')
     issue_label = os.environ.get('ISSUE_LABEL', 'dsr')
     excluded_pattern = os.environ.get('EXCLUDED_COMMITS', '^(chore|docs|style):')
 
@@ -745,6 +677,25 @@ def main():
     repo = g.get_repo(repository)
     branch = os.environ['GITHUB_REF'].replace('refs/heads/', '')
     
+    # Get current time in specified timezone
+    tz = pytz.timezone(timezone)
+    now = datetime.now(tz)
+    date_string = now.strftime('%Y-%m-%d')
+    time_string = now.strftime('%H:%M:%S')
+
+    # Get repository name from full path
+    repo_name = repository.split('/')[-1]
+    if repo_name.startswith('.'):
+        repo_name = repo_name[1:]
+
+    # Create consistent issue title format
+    issue_title = f"{issue_prefix} Daily Development Log ({date_string})"
+    if repo_name:
+        issue_title += f" - {repo_name}"
+    
+    print(f"\n=== Issue Title Format ===")
+    print(f"Using title format: {issue_title}")
+
     # Get today's commits and sort by time
     commits_to_process = get_todays_commits(repo, branch, timezone)
     
@@ -759,17 +710,21 @@ def main():
     existing_content = {'branches': {}}
 
     # find today's issue
+    print(f"\n=== Searching for Today's DSR Issue ===")
     for issue in issues:
-        if f"Daily Development Log ({datetime.now(pytz.timezone(timezone)).strftime('%Y-%m-%d')})" in issue.title:
+        print(f"Checking issue #{issue.number}: {issue.title}")
+        if issue.title == issue_title:  # 정확한 제목 매칭
+            print(f"Found today's DSR issue: #{issue.number}")
             today_issue = issue
             existing_content = parse_existing_issue(issue.body)
-            # TODO list is printed only once
             if existing_content['todos']:
                 print(f"\n=== Current Issue's TODO List ===")
                 for todo in existing_content['todos']:
                     status = "✅ Completed" if todo[0] else "⬜ Pending"
                     print(f"{status}: {todo[1]}")
             break
+        else:
+            print(f"Skipping issue #{issue.number}: {issue.title}")
 
     # find previous issues
     for issue in issues:
