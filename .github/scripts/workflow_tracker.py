@@ -461,6 +461,7 @@ def convert_to_checkbox_list(text: str) -> str:
 
     todo_manager = TodoManager()
     current_category = None
+    result = []  # 결과 리스트 초기화
     
     for line in text.strip().split('\n'):
         line = line.strip()
@@ -485,7 +486,7 @@ def convert_to_checkbox_list(text: str) -> str:
             logger.debug(f"Adding todo to category '{current_category}': {line}")
 
     todos = todo_manager.get_all_todos()
-    result = []
+    result = []  # 최종 결과 리스트 초기화
     
     for checked, text in todos:
         if text.startswith('@'):
