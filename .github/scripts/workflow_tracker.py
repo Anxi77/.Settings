@@ -411,8 +411,10 @@ def create_todo_section(todos):
         print(f"Processing todo: {todo_text}")
         
         if todo_text.startswith('@'):
-            current_category = normalize_category(todo_text[1:])
+            current_category = todo_text[1:].strip()  # @ 제거하고 카테고리 이름 사용
             print(f"Found category: {current_category}")
+            if current_category not in categorized:
+                categorized[current_category] = []
             continue
             
         if not current_category:
