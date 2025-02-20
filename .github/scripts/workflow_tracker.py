@@ -70,33 +70,41 @@ class CommitMessage:
         current_section = 'title'
         lines = []
 
-        for line in message.split('\n'):
+        # 첫 줄은 항상 title
+        message_lines = message.split('\n')
+        if not message_lines:
+            return None
+            
+        sections['title'] = message_lines[0].strip()
+        
+        # 나머지 줄 처리
+        for line in message_lines[1:]:
             line = line.strip()
             if not line:
                 continue
 
-            if line.startswith('[') and line.endswith(']'):
-                if lines:
-                    sections[current_section] = '\n'.join(lines)
-                current_section = line[1:-1].lower()
-                lines = []
-            else:
-                lines.append(line)
-
-        if lines:
-            sections[current_section] = '\n'.join(lines)
+            # 섹션 헤더 확인 (대소문자 구분 없이)
+            if line.lower() in ['[body]', '[todo]', '[footer]']:
+                current_section = line.strip('[]').lower()
+                continue
+            
+            # 현재 섹션에 라인 추가
+            if current_section in sections:
+                if sections[current_section]:
+                    sections[current_section] += '\n'
+                sections[current_section] += line
 
         # Parse type and title
-        title_match = re.match(r'\[(.*?)\]\s*(.*)', sections.get('title', ''))
+        title_match = re.match(r'\[(.*?)\]\s*(.*)', sections['title'])
         if not title_match:
             return None
 
         return cls(
             type_=title_match.group(1),
             title=title_match.group(2),
-            body=sections.get('body', ''),
-            todo=sections.get('todo', ''),
-            footer=sections.get('footer', '')
+            body=sections['body'],
+            todo=sections['todo'],
+            footer=sections['footer']
         )
 
 def parse_commit_message(message: str) -> Optional[Dict]:
