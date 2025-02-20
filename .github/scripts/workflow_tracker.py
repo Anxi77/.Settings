@@ -226,12 +226,15 @@ def create_commit_section(commit_data, branch, commit_sha, author, time_string, 
     
     # 현재 DSR 이슈 찾기
     current_date = datetime.now(pytz.timezone(os.environ.get('TIMEZONE', 'Asia/Seoul'))).strftime('%Y-%m-%d')
-    dsr_issues = repo.get_issues(state='open', labels=[os.environ.get('ISSUE_LABEL', 'dsr')])
+    dsr_issues = repo.get_issues(state='open', labels=['DSR'])
     current_dsr = None
     
     for issue in dsr_issues:
-        if f"Daily Development Log ({current_date})" in issue.title:
+        if f"Development Status Report ({current_date})" in issue.title:
             current_dsr = issue
+            # 현재 커밋을 DSR 이슈에 코멘트로 추가
+            issue.create_comment(f"커밋이 추가되었습니다: {commit_sha[:7]}\n\n```\n{commit_data['title']}\n```")
+            logger.debug(f"Added commit reference to DSR issue #{issue.number}")
             break
     
     # Extract issue numbers from entire commit message
@@ -251,11 +254,7 @@ def create_commit_section(commit_data, branch, commit_sha, author, time_string, 
         for issue_num in issue_numbers:
             try:
                 issue = repo.get_issue(int(issue_num))
-                # DSR 이슈인 경우 다른 메시지 사용
-                if str(issue.number) == str(current_dsr.number):
-                    issue.create_comment(f"커밋이 추가되었습니다: {commit_sha[:7]}\n\n```\n{commit_data['title']}\n```")
-                else:
-                    issue.create_comment(f"Referenced in commit {commit_sha[:7]}\n\nCommit message:\n```\n{commit_data['title']}\n```")
+                issue.create_comment(f"Referenced in commit {commit_sha[:7]}\n\nCommit message:\n```\n{commit_data['title']}\n```")
                 related_issues.append(f"Related to #{issue_num}")
                 logger.debug(f"Added reference to issue #{issue_num}")
             except Exception as e:
@@ -747,13 +746,15 @@ def process_todo_items(repo, todos, parent_issue_number):
             processed_todos.append((checked, text))
             continue
             
-        if is_issue_todo(text):
+        # (issue) 태그 처리
+        if '(issue)' in text:
             # Create new issue
             new_issue = create_issue_from_todo(repo, text, current_category, parent_issue_number)
             if new_issue:
                 created_issues.append(new_issue)
-                # Add only the issue number as a todo item
-                processed_todos.append((checked, f"#{new_issue.number}"))
+                # Add reference to the new issue
+                processed_todos.append((checked, f"#{new_issue.number} - {text.replace('(issue)', '').strip()}"))
+                logger.debug(f"Created new issue #{new_issue.number} from todo item")
         else:
             processed_todos.append((checked, text))
     
