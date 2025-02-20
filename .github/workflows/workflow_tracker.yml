@@ -18,13 +18,16 @@ on:
 
 permissions:
   issues: write
-  contents: read
+  contents: write
+  pull-requests: write
+  repository-projects: write
 
 env:
   TIMEZONE: "Asia/Seoul"
   ISSUE_PREFIX: "📅"
   ISSUE_LABEL: "DSR"
   EXCLUDED_COMMITS: "^(chore|docs|style):"
+  TODO_CATEGORIES: "testing,improvements,documentation" # 기본 TODO 카테고리 설정
 
 jobs:
   process-workflow:
@@ -53,14 +56,14 @@ jobs:
           python Actions/WorkflowTracker/.github/scripts/workflow_tracker.py
 
       - name: Process Task and Todo
-        if: github.event_name == 'issues' || github.event_name == 'project_card'
+        if: github.event_name == 'issues' || github.event_name == 'project_card' || github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python Actions/WorkflowTracker/.github/scripts/task_processor.py
 
       - name: Update Project Board
-        if: github.event_name == 'issues' || github.event_name == 'project_card' || github.event_name == 'project_column'
+        if: github.event_name == 'issues' || github.event_name == 'project_card' || github.event_name == 'project_column' || github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

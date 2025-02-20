@@ -24,13 +24,52 @@ def update_project_board():
         "Done": get_or_create_column(project, "Done")
     }
     
-    # 카드 이동 이벤트 처리
-    if "project_card" in event:
-        handle_card_movement(event["project_card"], columns, repo)
+    # 이벤트 타입에 따른 처리
+    event_type = os.environ["GITHUB_EVENT_NAME"]
     
-    # 이슈 상태 변경 처리
-    if "issue" in event:
+    if event_type == "push":
+        # 커밋에서 TODO 항목 처리
+        if "commits" in event:
+            latest_commit = event["commits"][-1]
+            handle_commit_todos(latest_commit, columns, repo)
+    elif "project_card" in event:
+        handle_card_movement(event["project_card"], columns, repo)
+    elif "issue" in event:
         handle_issue_status(event["issue"], columns)
+
+def handle_commit_todos(commit, columns, repo):
+    """커밋의 TODO 항목 처리"""
+    # 커밋 메시지 파싱
+    message = commit["message"]
+    todo_section = ""
+    is_todo = False
+    
+    # TODO 섹션 추출
+    for line in message.split("\n"):
+        if line.strip().lower() == "[todo]":
+            is_todo = True
+            continue
+        if is_todo:
+            todo_section += line + "\n"
+    
+    if not todo_section:
+        return
+    
+    # TODO 항목 처리
+    for line in todo_section.split("\n"):
+        line = line.strip()
+        if line.startswith("-"):
+            todo_text = line[1:].strip()
+            if todo_text.startswith("(issue)"):
+                # 이슈로 생성해야 하는 TODO 항목
+                todo_text = todo_text[7:].strip()  # "(issue)" 제거
+                issue = repo.create_issue(
+                    title=todo_text,
+                    body=f"Created from commit {commit['id'][:7]}\n\nOriginal TODO item: {todo_text}",
+                    labels=["todo"]
+                )
+                # 새 이슈를 To Do 칼럼에 추가
+                columns["To Do"].create_card(content_id=issue.id, content_type="Issue")
 
 def get_project(repo, name):
     """프로젝트 가져오기"""

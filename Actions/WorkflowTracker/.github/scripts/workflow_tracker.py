@@ -123,7 +123,7 @@ def create_commit_section(commit_data, branch, commit_sha, author, time_string, 
     # Handle None values in commit data
     body = commit_data.get('body', '').strip() if commit_data.get('body') else ''
     footer = commit_data.get('footer', '').strip() if commit_data.get('footer') else ''
-    
+
     # Format body with bullet points
     body_lines = []
     if body:
@@ -368,18 +368,22 @@ def create_todo_section(todos):
     # process categorized todos
     categorized = {}
     category_manager = CategoryManager()
-    current_category = 'General'
+    current_category = None
     
     # 카테고리별로 todo 항목 정리
     for checked, todo_text in todos:
         print(f"Processing todo: {todo_text}")
         
         if todo_text.startswith('@'):
-            current_category = todo_text[1:].strip()
+            current_category = todo_text[1:].strip()  # @ 제거하고 카테고리 이름 사용
             category_manager.set_current(current_category)
             print(f"Found category: {current_category}")
             continue
             
+        if not current_category:
+            current_category = 'General'
+            print(f"Using default category: {current_category}")
+        
         category = current_category
         category_lower = category.lower()
         
@@ -441,25 +445,23 @@ def convert_to_checkbox_list(text):
     lines = []
     current_category = None
     
-    # Process each line
+    # 줄 단위로 처리
     for line in text.strip().split('\n'):
         line = line.strip()
         if not line:
             continue
-            
+        
         if line.startswith('@'):
-            current_category = line
+            current_category = line  # 어떤 카테고리든 그대로 사용
             lines.append(current_category)
             print(f"Found category: {current_category}")
         elif line.startswith(('-', '*')):
-            if current_category is None:
-                if not any(l.startswith('@General') for l in lines):
-                    lines.insert(0, '@General')
-                    current_category = '@General'
-                    print("Created General category for uncategorized items")
-            
             todo_text = line[1:].strip()
-            lines.append(f"- {todo_text}")
+            if not current_category:
+                current_category = '@General'
+                lines.append(current_category)
+                print(f"Using default category: {current_category}")
+            lines.append(f"- [ ] {todo_text}")
             print(f"Added todo item to {current_category}: {todo_text}")
     
     result = '\n'.join(lines)
