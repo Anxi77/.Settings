@@ -850,29 +850,34 @@ def main():
         print(f"\n=== TODO Statistics ===")
         print(f"Current TODOs in issue: {len(existing_content['todos'])} items")
         
-        # Convert new todos from commit message
-        new_todos = []
-        for commit in commits_to_process:
-            commit_data = parse_commit_message(commit.commit.message)
-            if commit_data and commit_data['todo']:
-                print(f"\n=== Processing TODOs from Commit ===")
-                print(f"Todo section from commit:\n{commit_data['todo']}")
-                
-                todo_lines = convert_to_checkbox_list(commit_data['todo']).split('\n')
-                print(f"Converted todo lines: {todo_lines}")
-                
-                for line in todo_lines:
-                    if line.startswith('@'):
-                        new_todos.append((False, line))
-                    elif line.startswith('-'):
-                        new_todos.append((False, line[2:].strip()))
-        
-        print(f"\nParsed new todos:")
-        for checked, text in new_todos:
-            print(f"- [{checked}] {text}")
-        
         # Maintain existing todos while adding new ones
-        all_todos = merge_todos(existing_content['todos'], new_todos)
+        all_todos = existing_content['todos']
+        
+        # Add todos from current commit
+        current_commit = repo.get_commit(os.environ['GITHUB_SHA'])
+        commit_data = parse_commit_message(current_commit.commit.message)
+        if commit_data and commit_data['todo']:
+            print(f"\n=== Processing TODOs from Current Commit ===")
+            print(f"Todo section from commit:\n{commit_data['todo']}")
+            
+            new_todos = []
+            todo_lines = convert_to_checkbox_list(commit_data['todo']).split('\n')
+            print(f"Converted todo lines: {todo_lines}")
+            
+            for line in todo_lines:
+                if line.startswith('@'):
+                    new_todos.append((False, line))
+                elif line.startswith('-'):
+                    new_todos.append((False, line[2:].strip()))
+            
+            print(f"\nParsed new todos from current commit:")
+            for checked, text in new_todos:
+                print(f"- [{checked}] {text}")
+            
+            # Merge new todos only
+            all_todos = merge_todos(all_todos, new_todos)
+        
+        # Merge previous todos
         if previous_todos:
             print(f"\n=== TODOs Migrated from Previous Day ===")
             for _, todo_text in previous_todos:
@@ -915,18 +920,21 @@ def main():
         today_issue.edit(body=updated_body)
         print(f"Updated issue #{today_issue.number}")
     else:
-        # For new issue, merge previous todos with new ones
-        new_todos = []
-        for commit in commits_to_process:
-            commit_data = parse_commit_message(commit.commit.message)
-            if commit_data and commit_data['todo']:
-                todo_lines = convert_to_checkbox_list(commit_data['todo']).split('\n')
-                for line in todo_lines:
-                    if line.startswith('-'):
-                        new_todos.append((False, line[2:].strip()))
+        # 새 이슈 생성 시
+        all_todos = []
         
-        # Merge all todos
-        all_todos = merge_todos(new_todos, previous_todos)
+        # 현재 트리거된 커밋의 TODO 추가
+        current_commit = repo.get_commit(os.environ['GITHUB_SHA'])
+        commit_data = parse_commit_message(current_commit.commit.message)
+        if commit_data and commit_data['todo']:
+            todo_lines = convert_to_checkbox_list(commit_data['todo']).split('\n')
+            for line in todo_lines:
+                if line.startswith('-'):
+                    all_todos.append((False, line[2:].strip()))
+        
+        # 이전 날의 미완료 TODO 병합
+        if previous_todos:
+            all_todos = merge_todos(all_todos, previous_todos)
         
         # Create initial body with commit at the top
         body = f'''# {issue_title}
