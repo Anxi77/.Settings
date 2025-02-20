@@ -398,8 +398,9 @@ class TodoItem:
         return self.text.startswith('(issue)')
 
     def __str__(self) -> str:
-        checkbox = '[x]' if self.checked else '[ ]'
-        return f"- {checkbox} {self.text}"
+        if self.text.startswith('@'):
+            return self.text
+        return self.text
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, TodoItem):
@@ -473,30 +474,25 @@ def convert_to_checkbox_list(text: str) -> str:
             logger.debug(f"Setting category to: {current_category}")
         elif line.startswith(('-', '*')):
             todo_text = line[1:].strip()
-            # 이미 체크박스가 있는지 확인
-            if not (todo_text.startswith('[ ]') or todo_text.startswith('[x]')):
-                todo_text = f"[ ] {todo_text}"
+            # 체크박스가 이미 있는지 확인
+            if todo_text.startswith('[ ]') or todo_text.startswith('[x]'):
+                todo_manager.add_todo(todo_text, category=current_category)
             else:
-                # 체크박스가 이미 있다면 그대로 사용
-                todo_text = todo_text
-            todo_manager.add_todo(todo_text, category=current_category)
+                todo_manager.add_todo(todo_text, category=current_category)
             logger.debug(f"Adding todo to category '{current_category}': {todo_text}")
         else:
-            # 체크박스가 없는 경우에만 추가
-            if not (line.startswith('[ ]') or line.startswith('[x]')):
-                line = f"[ ] {line}"
-            todo_manager.add_todo(line, category=current_category)
+            # 일반 텍스트 처리
+            if line.startswith('[ ]') or line.startswith('[x]'):
+                todo_manager.add_todo(line, category=current_category)
+            else:
+                todo_manager.add_todo(line, category=current_category)
             logger.debug(f"Adding todo to category '{current_category}': {line}")
 
     todos = todo_manager.get_all_todos()
     result = []
     
     for checked, text in todos:
-        if text.startswith('@'):
-            result.append(text)
-        else:
-            # TodoItem.__str__에서 이미 체크박스를 추가하므로 여기서는 추가하지 않음
-            result.append(text)
+        result.append(text)
     
     final_result = '\n'.join(result)
     logger.debug(f"Converted result:\n{final_result}")
