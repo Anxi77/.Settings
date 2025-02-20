@@ -417,25 +417,33 @@ class TodoManager:
 
     def set_category(self, category: str) -> None:
         """Set current category and ensure it exists"""
-        category = category.strip()
-        if not category:
-            category = 'General'
+        category = category.strip() if category else 'General'
         self._current_category = category
         if category not in self.categories:
             self.categories[category] = []
+        logger.debug(f"Category set to: {category}")
 
     def add_todo(self, text: str, checked: bool = False, category: str = None) -> None:
         """Add a new todo item"""
-        if category:
-            self.set_category(category)
-        todo = TodoItem(text, checked, self.current_category)
-        if todo not in self.categories[self.current_category]:
-            self.categories[self.current_category].append(todo)
+        use_category = category if category else self.current_category
+        self.set_category(use_category)
+        
+        todo = TodoItem(text, checked, use_category)
+        if todo not in self.categories[use_category]:
+            self.categories[use_category].append(todo)
+            logger.debug(f"Added todo to category '{use_category}': {text}")
 
     def get_all_todos(self) -> List[Tuple[bool, str]]:
         """Get all todos in format compatible with existing code"""
         result = []
-        for category in ['General'] + sorted(cat for cat in self.categories if cat != 'General'):
+        # 먼저 General 카테고리 처리
+        if self.categories.get('General'):
+            result.append((False, "@General"))
+            for todo in self.categories['General']:
+                result.append((todo.checked, todo.text))
+        
+        # 나머지 카테고리 처리 (알파벳 순)
+        for category in sorted(cat for cat in self.categories if cat != 'General'):
             if self.categories[category]:
                 result.append((False, f"@{category}"))
                 for todo in self.categories[category]:
@@ -452,6 +460,7 @@ def convert_to_checkbox_list(text: str) -> str:
     logger.debug(f"Input text:\n{text}")
 
     todo_manager = TodoManager()
+    current_category = None
     
     for line in text.strip().split('\n'):
         line = line.strip()
@@ -459,23 +468,34 @@ def convert_to_checkbox_list(text: str) -> str:
             continue
 
         if line.startswith('@'):
-            category = line[1:].strip()
-            todo_manager.set_category(category)
+            current_category = line[1:].strip()
+            todo_manager.set_category(current_category)
+            logger.debug(f"Setting category to: {current_category}")
+            result.append(line)  # 카테고리 라인 추가
         elif line.startswith(('-', '*')):
             todo_text = line[1:].strip()
             if not (todo_text.startswith('[ ]') or todo_text.startswith('[x]')):
                 todo_text = f"[ ] {todo_text}"
-            todo_manager.add_todo(todo_text)
+            todo_manager.add_todo(todo_text, category=current_category)
+            logger.debug(f"Adding todo to category '{current_category}': {todo_text}")
         else:
             if not (line.startswith('[ ]') or line.startswith('[x]')):
                 line = f"[ ] {line}"
-            todo_manager.add_todo(line)
+            todo_manager.add_todo(line, category=current_category)
+            logger.debug(f"Adding todo to category '{current_category}': {line}")
 
     todos = todo_manager.get_all_todos()
-    result = '\n'.join(f"- {text}" if not text.startswith('@') else text for _, text in todos)
+    result = []
     
-    logger.debug(f"Converted result:\n{result}")
-    return result
+    for checked, text in todos:
+        if text.startswith('@'):
+            result.append(text)
+        else:
+            result.append(f"- {text}")
+    
+    final_result = '\n'.join(result)
+    logger.debug(f"Converted result:\n{final_result}")
+    return final_result
 
 def merge_todos(existing_todos: List[Tuple[bool, str]], new_todos: List[Tuple[bool, str]]) -> List[Tuple[bool, str]]:
     """Merge two lists of todos using TodoManager"""
