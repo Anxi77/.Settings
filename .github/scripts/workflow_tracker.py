@@ -224,9 +224,26 @@ def create_commit_section(commit_data, branch, commit_sha, author, time_string, 
                 logger.debug(f"Added body line: {line}")
     quoted_body = '\n'.join(body_lines)
     
+    # 현재 DSR 이슈 찾기
+    current_date = datetime.now(pytz.timezone(os.environ.get('TIMEZONE', 'Asia/Seoul'))).strftime('%Y-%m-%d')
+    dsr_issues = repo.get_issues(state='open', labels=['DSR'])
+    current_dsr = None
+    
+    for issue in dsr_issues:
+        if f"Development Status Report ({current_date})" in issue.title:
+            current_dsr = issue
+            # 현재 커밋을 DSR 이슈에 코멘트로 추가
+            issue.create_comment(f"커밋이 추가되었습니다: {commit_sha[:7]}\n\n```\n{commit_data['title']}\n```")
+            logger.debug(f"Added commit reference to DSR issue #{issue.number}")
+            break
+    
     # Extract issue numbers from entire commit message
     full_message = f"{commit_data['title']}\n{body}\n{footer}"
     issue_numbers = set(re.findall(r'#(\d+)', full_message))
+    
+    # Add current DSR issue number if found
+    if current_dsr:
+        issue_numbers.add(str(current_dsr.number))
     
     # Add comments to referenced issues and prepare related issues section
     related_issues = []
@@ -885,14 +902,6 @@ def main():
             for todo in existing_content['todos']:
                 status = "✅ Completed" if todo[0] else "⬜ Pending"
                 logger.todo(status, todo[1])
-                
-        # 현재 커밋에 대한 코멘트 추가
-        current_sha = os.environ['GITHUB_SHA']
-        current_commit = repo.get_commit(current_sha)
-        commit_data = parse_commit_message(current_commit.commit.message)
-        if commit_data:
-            today_issue.create_comment(f"커밋이 추가되었습니다: {current_sha[:7]}\n\n```\n{commit_data['title']}\n```")
-            logger.debug(f"Added current commit reference to DSR issue #{today_issue.number}")
 
     # Find and process previous DSR issues
     previous_issues = repo.get_issues(state='open', labels=['DSR'])
