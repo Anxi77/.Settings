@@ -3,20 +3,20 @@ name: Create Issue from Commit Message
 on:
   push:
     branches:
-      - "**" # 모든 브랜치에서 동작
-    paths-ignore: # 불필요한 파일 변경 시 스킵
+      - "**"
+    paths-ignore:
       - ".gitignore"
       - "LICENSE"
 
 permissions:
-  issues: write # 이슈 생성 권한 추가
-  contents: read # 저장소 내용 읽기 권한
+  issues: write
+  contents: read
 
 env:
-  TIMEZONE: "Asia/Seoul" # 타임존 설정
-  ISSUE_PREFIX: "📅" # 이슈 제목 접두사
-  ISSUE_LABEL: "daily-log" # 기본 라벨
-  EXCLUDED_COMMITS: "^(chore|docs|style):" # 제외할 커밋 타입
+  TIMEZONE: "Asia/Seoul"
+  ISSUE_PREFIX: "📅"
+  ISSUE_LABEL: "daily-log"
+  EXCLUDED_COMMITS: "^(chore|docs|style):"
 
 jobs:
   create-issue:
@@ -36,8 +36,17 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r .github/scripts/requirements.txt
+          pip install slack_sdk
 
       - name: Create or Update Daily Issue
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python .github/scripts/create_daily_issue.py
+
+      - name: Send Slack Notification
+        if: success()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+        run: python .github/scripts/slack_notifier.py
