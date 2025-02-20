@@ -239,7 +239,7 @@ def create_commit_section(commit_data, branch, commit_sha, author, time_string, 
     
     # Process referenced issues
     if issue_numbers:
-        logger.debug("\nProcessing referenced issues:", issue_numbers)
+        logger.debug(f"\nProcessing referenced issues: {issue_numbers}")
         for issue_num in issue_numbers:
             try:
                 issue = repo.get_issue(int(issue_num))
