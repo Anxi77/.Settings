@@ -367,7 +367,6 @@ def create_todo_section(todos):
     
     # process categorized todos
     categorized = {}
-    category_manager = CategoryManager()
     current_category = None
     
     # 카테고리별로 todo 항목 정리
@@ -375,8 +374,7 @@ def create_todo_section(todos):
         print(f"Processing todo: {todo_text}")
         
         if todo_text.startswith('@'):
-            current_category = todo_text[1:].strip()  # @ 제거하고 카테고리 이름 사용
-            category_manager.set_current(current_category)
+            current_category = todo_text[1:].strip()
             print(f"Found category: {current_category}")
             continue
             
@@ -384,27 +382,22 @@ def create_todo_section(todos):
             current_category = 'General'
             print(f"Using default category: {current_category}")
         
-        category = current_category
-        category_lower = category.lower()
-        
-        if category_lower not in categorized:
-            categorized[category_lower] = {
-                'name': category,
+        if current_category not in categorized:
+            categorized[current_category] = {
                 'todos': []
             }
-        categorized[category_lower]['todos'].append((checked, todo_text))
-        print(f"Added to category '{category}': {todo_text}")
+        
+        categorized[current_category]['todos'].append((checked, todo_text))
+        print(f"Added to category '{current_category}': {todo_text}")
     
     # process categorized todos
     sections = []
-    processed_categories = set()  # Track processed categories
     
     # Process all categories
-    for category_lower, data in categorized.items():
-        if not data['todos'] or category_lower in processed_categories:  # Skip empty or already processed categories
+    for category, data in categorized.items():
+        if not data['todos']:  # Skip empty categories
             continue
             
-        category = data['name']
         completed = sum(1 for checked, _ in data['todos'] if checked)
         total = len(data['todos'])
         print(f"\nProcessing category: {category}")
@@ -424,7 +417,6 @@ def create_todo_section(todos):
 ⚫
 </details>'''
         sections.append(section)
-        processed_categories.add(category_lower)
         print(f"Created details section for {category}")
     
     # Add extra newline between sections for better readability
