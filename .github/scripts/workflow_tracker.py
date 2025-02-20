@@ -400,7 +400,8 @@ class TodoItem:
     def __str__(self) -> str:
         if self.text.startswith('@'):
             return self.text
-        return self.text
+        checkbox = '[x]' if self.checked else '[ ]'
+        return f"- {checkbox} {self.text}"
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, TodoItem):
