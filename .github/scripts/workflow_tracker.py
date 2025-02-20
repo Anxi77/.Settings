@@ -216,7 +216,7 @@ def parse_existing_issue(body):
                 
             if '> <details>' in line:
                 if in_commit_block:
-                    # 이전 커밋 블록 저장
+                    # save previous commit block
                     commits.append('\n'.join(current_commit))
                 in_commit_block = True
                 current_commit = [line]
@@ -229,7 +229,7 @@ def parse_existing_issue(body):
                     in_commit_block = False
                     current_commit = []
         
-        # 마지막 커밋 블록 처리
+        # handle the last commit block
         if in_commit_block and current_commit:
             commits.append('\n'.join(current_commit))
         
@@ -292,66 +292,51 @@ def parse_existing_issue(body):
 def merge_todos(existing_todos, new_todos):
     """Merge two lists of todos, avoiding duplicates and preserving order and state"""
     result = []
-    todo_map = {}
-    category_manager = CategoryManager()
-    processed_categories = set()  # Track processed categories
+    todo_map = {}  # text -> (category, index)
+    categories = {}  # category -> list of todos
+    current_category = 'General'
     
-    # Process existing todos
-    current_category = 'General'  # Set default category as General
-    for checked, text in existing_todos:
-        if text.startswith('@'):
-            current_category = text[1:].strip()
-            if current_category.lower() not in processed_categories:  # Only add if not processed
-                result.append((False, f"@{current_category}"))
-                processed_categories.add(current_category.lower())
-            continue
-        
-        todo_map[text] = len(result)
-        result.append((checked, text))
+    # initialize General category
+    categories['General'] = []
     
-    # Process new todos
-    # Add General category if there are uncategorized items and not already added
-    if not any(t[1].startswith('@') for t in new_todos) and 'general' not in processed_categories:
-        result.insert(0, (False, "@General"))
-        processed_categories.add('general')
-        
-    for checked, text in new_todos:
-        if text.startswith('@'):
-            current_category = text[1:].strip()
-            # Add category marker if not exists
-            if current_category.lower() not in processed_categories:
-                result.append((False, f"@{current_category}"))
-                processed_categories.add(current_category.lower())
-            continue
+    # process all categories and todos
+    def process_todos(todos, update_existing=False):
+        nonlocal current_category
+        for checked, text in todos:
+            if text.startswith('@'):
+                current_category = text[1:].strip()
+                if current_category not in categories:
+                    categories[current_category] = []
+                continue
             
-        # Add General category marker for uncategorized items if not already added
-        if current_category == 'General' and 'general' not in processed_categories:
-            result.insert(0, (False, "@General"))
-            processed_categories.add('general')
+            # if the todo already exists
+            if text in todo_map:
+                if update_existing:
+                    existing_cat, existing_idx = todo_map[text]
+                    if checked:  # update the checked status
+                        categories[existing_cat][existing_idx] = (True, text)
+                continue
             
-        # Find the appropriate category section
-        category_index = next((i for i, (_, t) in enumerate(result) 
-                            if t.startswith('@') and t[1:].strip().lower() == current_category.lower()), None)
-        
-        if category_index is not None:
-            # Find the next category marker or end of list
-            next_category_index = next((i for i, (_, t) in enumerate(result[category_index + 1:], 
-                                    start=category_index + 1) if t.startswith('@')), len(result))
-            
-            if text not in todo_map:
-                # Insert the new todo just before the next category
-                result.insert(next_category_index, (checked, text))
-                # Update indices in todo_map
-                for t, idx in todo_map.items():
-                    if idx >= next_category_index:
-                        todo_map[t] = idx + 1
-                todo_map[text] = next_category_index
-                print(f"Added new todo to {current_category}: {text}")
-            else:
-                idx = todo_map[text]
-                if checked and not result[idx][0]:
-                    result[idx] = (True, text)
-                    print(f"Updated existing todo in {current_category}: {text}")
+            # add new todo
+            todo_map[text] = (current_category, len(categories[current_category]))
+            categories[current_category].append((checked, text))
+    
+    # process existing todos
+    process_todos(existing_todos, True)
+    
+    # process new todos
+    process_todos(new_todos, True)
+    
+    # generate result (add General category first)
+    if categories['General']:
+        result.append((False, "@General"))
+        result.extend(categories['General'])
+    
+    # add other categories
+    for category in categories: 
+        if category != 'General' and categories[category]:
+            result.append((False, f"@{category}"))
+            result.extend(categories[category])
     
     return result
 
@@ -674,12 +659,12 @@ def get_todays_commits(repo, branch, timezone):
     print(f"\n=== Getting Today's Commits for {branch} ===")
     
     try:
-        # 브랜치의 커밋들을 가져옴
+        # get commits of the branch
         commits = repo.get_commits(sha=branch)
         todays_commits = []
         
         for commit in commits:
-            # GitHub API가 반환하는 시간은 UTC이므로 지정된 타임존으로 변환
+            # GitHub API returns UTC time, so convert to specified timezone
             commit_date = commit.commit.author.date.replace(tzinfo=pytz.UTC).astimezone(tz).date()
             commit_time = commit.commit.author.date.replace(tzinfo=pytz.UTC).astimezone(tz)
             
@@ -690,7 +675,7 @@ def get_todays_commits(repo, branch, timezone):
             elif commit_date < today:
                 break
         
-        # 시간 기준으로 정렬 (최신순)
+        # sort by time (latest first)
         todays_commits.sort(key=lambda x: x[0], reverse=True)
         sorted_commits = [commit for _, commit in todays_commits]
         
@@ -701,12 +686,49 @@ def get_todays_commits(repo, branch, timezone):
         print(f"Error getting commits: {str(e)}")
         return []
 
+def update_readme_with_daily_log(repo, issue_number, issue_title):
+    """Update README.md with the latest daily log link"""
+    try:
+        # Get README content
+        readme = repo.get_contents("README.md")
+        content = readme.decoded_content.decode('utf-8')
+        
+        # Prepare new daily log section
+        daily_log_section = f'''## 📌 Latest Development Status Report
+[{issue_title}](../../issues/{issue_number})
+'''
+        
+        # Check if daily log section exists
+        daily_log_pattern = r'## 📌 Latest Development Status Report\n\[.*?\]\(.*?\)\n'
+        if re.search(daily_log_pattern, content):
+            # Update existing section
+            new_content = re.sub(daily_log_pattern, daily_log_section, content)
+        else:
+            # Add new section at the top after the first heading
+            first_heading_end = content.find('\n', content.find('#'))
+            if first_heading_end == -1:
+                new_content = daily_log_section + '\n' + content
+            else:
+                new_content = content[:first_heading_end + 1] + '\n' + daily_log_section + content[first_heading_end + 1:]
+        
+        # Update README
+        repo.update_file(
+            path="README.md",
+            message=f"docs: Update DSR link to #{issue_number}",
+            content=new_content,
+            sha=readme.sha
+        )
+        print(f"Updated README.md with DSR #{issue_number}")
+        
+    except Exception as e:
+        print(f"Failed to update README: {str(e)}")
+
 def main():
     # Initialize GitHub token and environment variables
     github_token = os.environ['GITHUB_TOKEN']
     timezone = os.environ.get('TIMEZONE', 'Asia/Seoul')
-    issue_prefix = os.environ.get('ISSUE_PREFIX', '📅')
-    issue_label = os.environ.get('ISSUE_LABEL', 'daily-log')
+    issue_prefix = os.environ.get('ISSUE_PREFIX', '📊')
+    issue_label = os.environ.get('ISSUE_LABEL', 'dsr')
     excluded_pattern = os.environ.get('EXCLUDED_COMMITS', '^(chore|docs|style):')
 
     # Initialize GitHub API client
@@ -818,7 +840,7 @@ def main():
         repo_name = repo_name[1:]
 
     # Create issue title
-    issue_title = f"{issue_prefix} Daily Development Log ({date_string}) - {repo_name}"
+    issue_title = f"{issue_prefix} Development Status Report ({date_string}) - {repo_name}"
 
     # Create commit sections
     commit_sections = []
@@ -850,29 +872,34 @@ def main():
         print(f"\n=== TODO Statistics ===")
         print(f"Current TODOs in issue: {len(existing_content['todos'])} items")
         
-        # Convert new todos from commit message
-        new_todos = []
-        for commit in commits_to_process:
-            commit_data = parse_commit_message(commit.commit.message)
-            if commit_data and commit_data['todo']:
-                print(f"\n=== Processing TODOs from Commit ===")
-                print(f"Todo section from commit:\n{commit_data['todo']}")
-                
-                todo_lines = convert_to_checkbox_list(commit_data['todo']).split('\n')
-                print(f"Converted todo lines: {todo_lines}")
-                
-                for line in todo_lines:
-                    if line.startswith('@'):
-                        new_todos.append((False, line))
-                    elif line.startswith('-'):
-                        new_todos.append((False, line[2:].strip()))
-        
-        print(f"\nParsed new todos:")
-        for checked, text in new_todos:
-            print(f"- [{checked}] {text}")
-        
         # Maintain existing todos while adding new ones
-        all_todos = merge_todos(existing_content['todos'], new_todos)
+        all_todos = existing_content['todos']
+        
+        # Add todos from current commit
+        current_commit = repo.get_commit(os.environ['GITHUB_SHA'])
+        commit_data = parse_commit_message(current_commit.commit.message)
+        if commit_data and commit_data['todo']:
+            print(f"\n=== Processing TODOs from Current Commit ===")
+            print(f"Todo section from commit:\n{commit_data['todo']}")
+            
+            new_todos = []
+            todo_lines = convert_to_checkbox_list(commit_data['todo']).split('\n')
+            print(f"Converted todo lines: {todo_lines}")
+            
+            for line in todo_lines:
+                if line.startswith('@'):
+                    new_todos.append((False, line))
+                elif line.startswith('-'):
+                    new_todos.append((False, line[2:].strip()))
+            
+            print(f"\nParsed new todos from current commit:")
+            for checked, text in new_todos:
+                print(f"- [{checked}] {text}")
+            
+            # Merge new todos only
+            all_todos = merge_todos(all_todos, new_todos)
+        
+        # Merge previous todos
         if previous_todos:
             print(f"\n=== TODOs Migrated from Previous Day ===")
             for _, todo_text in previous_todos:
@@ -914,19 +941,23 @@ def main():
 
         today_issue.edit(body=updated_body)
         print(f"Updated issue #{today_issue.number}")
+        update_readme_with_daily_log(repo, today_issue.number, issue_title)
     else:
-        # For new issue, merge previous todos with new ones
-        new_todos = []
-        for commit in commits_to_process:
-            commit_data = parse_commit_message(commit.commit.message)
-            if commit_data and commit_data['todo']:
-                todo_lines = convert_to_checkbox_list(commit_data['todo']).split('\n')
-                for line in todo_lines:
-                    if line.startswith('-'):
-                        new_todos.append((False, line[2:].strip()))
+        # create new issue
+        all_todos = []
         
-        # Merge all todos
-        all_todos = merge_todos(new_todos, previous_todos)
+        # add TODOs from the current commit
+        current_commit = repo.get_commit(os.environ['GITHUB_SHA'])
+        commit_data = parse_commit_message(current_commit.commit.message)
+        if commit_data and commit_data['todo']:
+            todo_lines = convert_to_checkbox_list(commit_data['todo']).split('\n')
+            for line in todo_lines:
+                if line.startswith('-'):
+                    all_todos.append((False, line[2:].strip()))
+        
+        # merge unchecked TODOs from the previous day
+        if previous_todos:
+            all_todos = merge_todos(all_todos, previous_todos)
         
         # Create initial body with commit at the top
         body = f'''# {issue_title}
@@ -956,6 +987,7 @@ def main():
             labels=[issue_label, f"branch:{branch}"]
         )
         print(f"Created new issue #{new_issue.number}")
+        update_readme_with_daily_log(repo, new_issue.number, issue_title)
 
 if __name__ == '__main__':
     main()

@@ -216,7 +216,7 @@ def parse_existing_issue(body):
                 
             if '> <details>' in line:
                 if in_commit_block:
-                    # 이전 커밋 블록 저장
+                    # save previous commit block
                     commits.append('\n'.join(current_commit))
                 in_commit_block = True
                 current_commit = [line]
@@ -229,7 +229,7 @@ def parse_existing_issue(body):
                     in_commit_block = False
                     current_commit = []
         
-        # 마지막 커밋 블록 처리
+        # handle the last commit block
         if in_commit_block and current_commit:
             commits.append('\n'.join(current_commit))
         
@@ -659,12 +659,12 @@ def get_todays_commits(repo, branch, timezone):
     print(f"\n=== Getting Today's Commits for {branch} ===")
     
     try:
-        # 브랜치의 커밋들을 가져옴
+        # get commits of the branch
         commits = repo.get_commits(sha=branch)
         todays_commits = []
         
         for commit in commits:
-            # GitHub API가 반환하는 시간은 UTC이므로 지정된 타임존으로 변환
+            # GitHub API returns UTC time, so convert to specified timezone
             commit_date = commit.commit.author.date.replace(tzinfo=pytz.UTC).astimezone(tz).date()
             commit_time = commit.commit.author.date.replace(tzinfo=pytz.UTC).astimezone(tz)
             
@@ -675,7 +675,7 @@ def get_todays_commits(repo, branch, timezone):
             elif commit_date < today:
                 break
         
-        # 시간 기준으로 정렬 (최신순)
+        # sort by time (latest first)
         todays_commits.sort(key=lambda x: x[0], reverse=True)
         sorted_commits = [commit for _, commit in todays_commits]
         
@@ -686,12 +686,49 @@ def get_todays_commits(repo, branch, timezone):
         print(f"Error getting commits: {str(e)}")
         return []
 
+def update_readme_with_daily_log(repo, issue_number, issue_title):
+    """Update README.md with the latest daily log link"""
+    try:
+        # Get README content
+        readme = repo.get_contents("README.md")
+        content = readme.decoded_content.decode('utf-8')
+        
+        # Prepare new daily log section
+        daily_log_section = f'''## 📌 Latest Development Status Report
+[{issue_title}](../../issues/{issue_number})
+'''
+        
+        # Check if daily log section exists
+        daily_log_pattern = r'## 📌 Latest Development Status Report\n\[.*?\]\(.*?\)\n'
+        if re.search(daily_log_pattern, content):
+            # Update existing section
+            new_content = re.sub(daily_log_pattern, daily_log_section, content)
+        else:
+            # Add new section at the top after the first heading
+            first_heading_end = content.find('\n', content.find('#'))
+            if first_heading_end == -1:
+                new_content = daily_log_section + '\n' + content
+            else:
+                new_content = content[:first_heading_end + 1] + '\n' + daily_log_section + content[first_heading_end + 1:]
+        
+        # Update README
+        repo.update_file(
+            path="README.md",
+            message=f"docs: Update DSR link to #{issue_number}",
+            content=new_content,
+            sha=readme.sha
+        )
+        print(f"Updated README.md with DSR #{issue_number}")
+        
+    except Exception as e:
+        print(f"Failed to update README: {str(e)}")
+
 def main():
     # Initialize GitHub token and environment variables
     github_token = os.environ['GITHUB_TOKEN']
     timezone = os.environ.get('TIMEZONE', 'Asia/Seoul')
-    issue_prefix = os.environ.get('ISSUE_PREFIX', '📅')
-    issue_label = os.environ.get('ISSUE_LABEL', 'daily-log')
+    issue_prefix = os.environ.get('ISSUE_PREFIX', '📊')
+    issue_label = os.environ.get('ISSUE_LABEL', 'dsr')
     excluded_pattern = os.environ.get('EXCLUDED_COMMITS', '^(chore|docs|style):')
 
     # Initialize GitHub API client
@@ -803,7 +840,7 @@ def main():
         repo_name = repo_name[1:]
 
     # Create issue title
-    issue_title = f"{issue_prefix} Daily Development Log ({date_string}) - {repo_name}"
+    issue_title = f"{issue_prefix} Development Status Report ({date_string}) - {repo_name}"
 
     # Create commit sections
     commit_sections = []
@@ -904,11 +941,12 @@ def main():
 
         today_issue.edit(body=updated_body)
         print(f"Updated issue #{today_issue.number}")
+        update_readme_with_daily_log(repo, today_issue.number, issue_title)
     else:
-        # 새 이슈 생성 시
+        # create new issue
         all_todos = []
         
-        # 현재 트리거된 커밋의 TODO 추가
+        # add TODOs from the current commit
         current_commit = repo.get_commit(os.environ['GITHUB_SHA'])
         commit_data = parse_commit_message(current_commit.commit.message)
         if commit_data and commit_data['todo']:
@@ -917,7 +955,7 @@ def main():
                 if line.startswith('-'):
                     all_todos.append((False, line[2:].strip()))
         
-        # 이전 날의 미완료 TODO 병합
+        # merge unchecked TODOs from the previous day
         if previous_todos:
             all_todos = merge_todos(all_todos, previous_todos)
         
@@ -949,6 +987,7 @@ def main():
             labels=[issue_label, f"branch:{branch}"]
         )
         print(f"Created new issue #{new_issue.number}")
+        update_readme_with_daily_log(repo, new_issue.number, issue_title)
 
 if __name__ == '__main__':
     main()

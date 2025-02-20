@@ -15,7 +15,7 @@ permissions:
 env:
   TIMEZONE: "Asia/Seoul"
   ISSUE_PREFIX: "📅"
-  ISSUE_LABEL: "daily-log"
+  ISSUE_LABEL: "DSR"
   EXCLUDED_COMMITS: "^(chore|docs|style):"
 
 jobs:
@@ -41,7 +41,7 @@ jobs:
       - name: Create or Update Daily Issue
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python .github/scripts/create_daily_issue.py
+        run: python .github/scripts/workflow_tracker.py
 
       - name: Send Slack Notification
         if: success()
