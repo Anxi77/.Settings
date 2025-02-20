@@ -46,35 +46,35 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r Actions/WorkflowTracker/.github/scripts/requirements.txt
+          pip install -r .github/scripts/requirements.txt
 
       - name: Create Daily Log
         if: github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python Actions/WorkflowTracker/.github/scripts/workflow_tracker.py
+          python .github/scripts/workflow_tracker.py
 
       - name: Process Task and Todo
         if: github.event_name == 'issues' || github.event_name == 'project_card' || github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python Actions/WorkflowTracker/.github/scripts/task_processor.py
+          python .github/scripts/task_processor.py
 
       - name: Update Project Board
         if: github.event_name == 'issues' || github.event_name == 'project_card' || github.event_name == 'project_column' || github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python Actions/WorkflowTracker/.github/scripts/project_updater.py
+          python .github/scripts/project_updater.py
 
       - name: Process Task Approval
         if: github.event_name == 'issue_comment' || (github.event_name == 'issues' && (github.event.action == 'labeled' || github.event.action == 'unlabeled'))
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python Actions/WorkflowTracker/.github/scripts/process_approval.py
+          python .github/scripts/process_approval.py
 
       - name: Send Notifications
         env:
@@ -82,4 +82,4 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
         run: |
-          python Actions/WorkflowTracker/.github/scripts/slack_notifier.py
+          python .github/scripts/slack_notifier.py

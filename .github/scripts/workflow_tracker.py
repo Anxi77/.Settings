@@ -358,6 +358,46 @@ def merge_todos(existing_todos, new_todos):
     
     return result
 
+def normalize_category(category):
+    """Normalize category name"""
+    if not category:
+        return 'General'
+    return category.strip().replace(' ', '_')
+
+def convert_to_checkbox_list(text):
+    """Convert text to checkbox list with categories"""
+    if not text:
+        print("DEBUG: No text to convert to checkbox list")
+        return ''
+    
+    print("\n=== Converting to Checkbox List ===")
+    print(f"Input text:\n{text}")
+    
+    result = []
+    current_category = None
+    
+    for line in text.strip().split('\n'):
+        line = line.strip()
+        if not line:
+            continue
+        
+        if line.startswith('@'):
+            current_category = normalize_category(line[1:])
+            result.append(f"@{current_category}")
+            print(f"Found category: @{current_category}")
+        elif line.startswith(('-', '*')):
+            todo_text = line[1:].strip()
+            if not current_category:
+                current_category = 'General'
+                result.append(f"@{current_category}")
+                print(f"Using default category: @{current_category}")
+            result.append(f"- [ ] {todo_text}")
+            print(f"Added todo item to @{current_category}: {todo_text}")
+    
+    result = '\n'.join(result)
+    print(f"\nConverted result:\n{result}")
+    return result
+
 def create_todo_section(todos):
     """Create todo section with categories"""
     if not todos:
@@ -374,7 +414,7 @@ def create_todo_section(todos):
         print(f"Processing todo: {todo_text}")
         
         if todo_text.startswith('@'):
-            current_category = todo_text[1:].strip()
+            current_category = normalize_category(todo_text[1:])
             print(f"Found category: {current_category}")
             continue
             
@@ -383,28 +423,36 @@ def create_todo_section(todos):
             print(f"Using default category: {current_category}")
         
         if current_category not in categorized:
-            categorized[current_category] = {
-                'todos': []
-            }
+            categorized[current_category] = []
         
-        categorized[current_category]['todos'].append((checked, todo_text))
-        print(f"Added to category '{current_category}': {todo_text}")
+        # 중복 체크
+        if not any(text == todo_text for _, text in categorized[current_category]):
+            categorized[current_category].append((checked, todo_text))
+            print(f"Added to category '{current_category}': {todo_text}")
+        else:
+            print(f"Skipping duplicate todo in category '{current_category}': {todo_text}")
     
     # process categorized todos
     sections = []
     
-    # Process all categories
-    for category, data in categorized.items():
-        if not data['todos']:  # Skip empty categories
+    # Process all categories (General first, then others alphabetically)
+    categories = sorted(categorized.keys())
+    if 'General' in categories:
+        categories.remove('General')
+        categories = ['General'] + categories
+    
+    for category in categories:
+        todos = categorized[category]
+        if not todos:  # Skip empty categories
             continue
             
-        completed = sum(1 for checked, _ in data['todos'] if checked)
-        total = len(data['todos'])
+        completed = sum(1 for checked, _ in todos if checked)
+        total = len(todos)
         print(f"\nProcessing category: {category}")
         print(f"Items in category: {total} (Completed: {completed})")
         
         todo_lines = []
-        for checked, text in data['todos']:
+        for checked, text in todos:
             checkbox = '[x]' if checked else '[ ]'
             todo_lines.append(f"- {checkbox} {text}")
             print(f"Added todo line: {text}")
@@ -423,41 +471,6 @@ def create_todo_section(todos):
     result = '\n\n'.join(sections)
     print("\nFinal todo section:")
     print(result)
-    return result
-
-def convert_to_checkbox_list(text):
-    """Convert text to checkbox list with categories"""
-    if not text:
-        print("DEBUG: No text to convert to checkbox list")
-        return ''
-    
-    print("\n=== Converting to Checkbox List ===")
-    print(f"Input text:\n{text}")
-    
-    lines = []
-    current_category = None
-    
-    # 줄 단위로 처리
-    for line in text.strip().split('\n'):
-        line = line.strip()
-        if not line:
-            continue
-        
-        if line.startswith('@'):
-            current_category = line  # 어떤 카테고리든 그대로 사용
-            lines.append(current_category)
-            print(f"Found category: {current_category}")
-        elif line.startswith(('-', '*')):
-            todo_text = line[1:].strip()
-            if not current_category:
-                current_category = '@General'
-                lines.append(current_category)
-                print(f"Using default category: {current_category}")
-            lines.append(f"- [ ] {todo_text}")
-            print(f"Added todo item to {current_category}: {todo_text}")
-    
-    result = '\n'.join(lines)
-    print(f"\nConverted result:\n{result}")
     return result
 
 def get_previous_day_todos(repo, issue_label, current_date):
