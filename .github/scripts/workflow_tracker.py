@@ -461,7 +461,6 @@ def convert_to_checkbox_list(text: str) -> str:
 
     todo_manager = TodoManager()
     current_category = None
-    result = []  # 결과 리스트 초기화
     
     for line in text.strip().split('\n'):
         line = line.strip()
@@ -472,27 +471,32 @@ def convert_to_checkbox_list(text: str) -> str:
             current_category = line[1:].strip()
             todo_manager.set_category(current_category)
             logger.debug(f"Setting category to: {current_category}")
-            result.append(line)  # 카테고리 라인 추가
         elif line.startswith(('-', '*')):
             todo_text = line[1:].strip()
+            # 이미 체크박스가 있는지 확인
             if not (todo_text.startswith('[ ]') or todo_text.startswith('[x]')):
                 todo_text = f"[ ] {todo_text}"
+            else:
+                # 체크박스가 이미 있다면 그대로 사용
+                todo_text = todo_text
             todo_manager.add_todo(todo_text, category=current_category)
             logger.debug(f"Adding todo to category '{current_category}': {todo_text}")
         else:
+            # 체크박스가 없는 경우에만 추가
             if not (line.startswith('[ ]') or line.startswith('[x]')):
                 line = f"[ ] {line}"
             todo_manager.add_todo(line, category=current_category)
             logger.debug(f"Adding todo to category '{current_category}': {line}")
 
     todos = todo_manager.get_all_todos()
-    result = []  # 최종 결과 리스트 초기화
+    result = []
     
     for checked, text in todos:
         if text.startswith('@'):
             result.append(text)
         else:
-            result.append(f"- {text}")
+            # TodoItem.__str__에서 이미 체크박스를 추가하므로 여기서는 추가하지 않음
+            result.append(text)
     
     final_result = '\n'.join(result)
     logger.debug(f"Converted result:\n{final_result}")
