@@ -5,6 +5,8 @@ import pytz
 from github import Github
 import logging
 from typing import Dict, List, Tuple, Optional
+from github.Repository import Repository
+from github.Issue import Issue
 
 class WorkflowLogger:
     def __init__(self):
@@ -800,7 +802,7 @@ def update_readme_with_daily_log(repo, issue_number, issue_title):
     except Exception as e:
         print(f"Failed to update README: {str(e)}")
 
-def find_active_dsr_issue(repo: Github.Repository.Repository, date_string: str, issue_title: str) -> Optional[Github.Issue.Issue]:
+def find_active_dsr_issue(repo: Repository, date_string: str, issue_title: str) -> Optional[Issue]:
     """Find active DSR issue for the given date"""
     logger.section("Searching for Active DSR Issue")
     
