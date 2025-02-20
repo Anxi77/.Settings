@@ -137,9 +137,23 @@ def create_commit_section(commit_data, branch, commit_sha, author, time_string, 
                 print(f"Added body line: {line}")
     quoted_body = '\n'.join(body_lines)
     
+    # 현재 DSR 이슈 찾기
+    current_date = datetime.now(pytz.timezone(os.environ.get('TIMEZONE', 'Asia/Seoul'))).strftime('%Y-%m-%d')
+    dsr_issues = repo.get_issues(state='open', labels=[os.environ.get('ISSUE_LABEL', 'dsr')])
+    current_dsr = None
+    
+    for issue in dsr_issues:
+        if f"Daily Development Log ({current_date})" in issue.title:
+            current_dsr = issue
+            break
+    
     # Extract issue numbers from entire commit message
     full_message = f"{commit_data['title']}\n{body}\n{footer}"
     issue_numbers = set(re.findall(r'#(\d+)', full_message))
+    
+    # Add current DSR issue number if found
+    if current_dsr:
+        issue_numbers.add(str(current_dsr.number))
     
     # Add comments to referenced issues and prepare related issues section
     related_issues = []
@@ -150,7 +164,11 @@ def create_commit_section(commit_data, branch, commit_sha, author, time_string, 
         for issue_num in issue_numbers:
             try:
                 issue = repo.get_issue(int(issue_num))
-                issue.create_comment(f"Referenced in commit {commit_sha[:7]}\n\nCommit message:\n```\n{commit_data['title']}\n```")
+                # DSR 이슈인 경우 다른 메시지 사용
+                if str(issue.number) == str(current_dsr.number):
+                    issue.create_comment(f"커밋이 추가되었습니다: {commit_sha[:7]}\n\n```\n{commit_data['title']}\n```")
+                else:
+                    issue.create_comment(f"Referenced in commit {commit_sha[:7]}\n\nCommit message:\n```\n{commit_data['title']}\n```")
                 related_issues.append(f"Related to #{issue_num}")
                 print(f"Added reference to issue #{issue_num}")
             except Exception as e:
@@ -350,27 +368,21 @@ def create_todo_section(todos):
     # process categorized todos
     categorized = {}
     category_manager = CategoryManager()
-    general_todos = []
+    current_category = 'General'
     
+    # 카테고리별로 todo 항목 정리
     for checked, todo_text in todos:
         print(f"Processing todo: {todo_text}")
         
         if todo_text.startswith('@'):
-            category = todo_text[1:].strip()
-            category = category_manager.add_category(category)
-            category_manager.set_current(category)
-            print(f"Found category: {category}")
+            current_category = todo_text[1:].strip()
+            category_manager.set_current(current_category)
+            print(f"Found category: {current_category}")
             continue
             
-        category = category_manager.current
+        category = current_category
         category_lower = category.lower()
         
-        # Collect General todos separately
-        if category == 'General':
-            general_todos.append((checked, todo_text))
-            print(f"Added to General category: {todo_text}")
-            continue
-            
         if category_lower not in categorized:
             categorized[category_lower] = {
                 'name': category,
@@ -383,23 +395,7 @@ def create_todo_section(todos):
     sections = []
     processed_categories = set()  # Track processed categories
     
-    # Add General category first if it has items
-    if general_todos:
-        completed = sum(1 for checked, _ in general_todos if checked)
-        total = len(general_todos)
-        section = f'''<details>
-<summary><h3 style="display: inline;">📑 General ({completed}/{total})</h3></summary>
-
-{'\n'.join(f"- {'[x]' if checked else '[ ]'} {text}" for checked, text in general_todos)}
-
-⚫
-</details>'''
-        sections.append(section)
-        processed_categories.add('general')
-        print(f"\nProcessing category: General")
-        print(f"Items in category: {total} (Completed: {completed})")
-    
-    # Process other categories
+    # Process all categories
     for category_lower, data in categorized.items():
         if not data['todos'] or category_lower in processed_categories:  # Skip empty or already processed categories
             continue

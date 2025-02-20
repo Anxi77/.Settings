@@ -228,6 +228,89 @@ def format_commit_message(commit_data, repo_name):
         ]
     }
 
+def format_commit_todo_message(commit_data, repo_name):
+    """커밋의 TODO 항목 Slack 메시지 포맷팅"""
+    commit_msg = commit_data['message']
+    commit_url = commit_data['url'].replace('api.github.com/repos', 'github.com')
+    author = commit_data['author']['name']
+    
+    # TODO 섹션 파싱
+    todo_section = ""
+    lines = commit_msg.split('\n')
+    is_todo = False
+    current_category = 'General'
+    categories = {}
+    
+    for line in lines:
+        line = line.strip()
+        if line.lower() == '[todo]':
+            is_todo = True
+            continue
+        if is_todo:
+            if line.startswith('@'):
+                current_category = line[1:].strip()
+                if current_category not in categories:
+                    categories[current_category] = []
+            elif line.startswith('-'):
+                if current_category not in categories:
+                    categories[current_category] = []
+                item = line[1:].strip()
+                categories[current_category].append(item)
+    
+    if not any(items for items in categories.values()):
+        return None
+    
+    blocks = [
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": "📝 커밋에서 새로운 TODO 항목이 추가되었습니다"
+            }
+        },
+        {
+            "type": "section",
+            "fields": [
+                {
+                    "type": "mrkdwn",
+                    "text": f"*작성자:*\n{author}"
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": f"*저장소:*\n{repo_name}"
+                }
+            ]
+        }
+    ]
+    
+    # 카테고리별 TODO 항목 추가
+    for category, items in categories.items():
+        if not items:  # 빈 카테고리는 건너뛰기
+            continue
+            
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*📑 {category}*\n" + "\n".join(f"• {item}" for item in items)
+            }
+        })
+    
+    blocks.extend([
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"👉 <{commit_url}|커밋 보러가기>"
+            }
+        },
+        {
+            "type": "divider"
+        }
+    ])
+    
+    return {"blocks": blocks}
+
 def send_slack_notification(message):
     """Slack으로 메시지 전송"""
     client = WebClient(token=os.environ['SLACK_BOT_TOKEN'])
@@ -256,15 +339,21 @@ def main():
         latest_commit = event_data['commits'][-1] if event_data.get('commits') else None
         if latest_commit:
             repo_name = event_data['repository']['name']
-            message = format_commit_message(latest_commit, repo_name)
+            # 기본 커밋 메시지 전송
+            commit_message = format_commit_message(latest_commit, repo_name)
+            send_slack_notification(commit_message)
+            
+            # TODO 항목이 있다면 추가 메시지 전송
+            todo_message = format_commit_todo_message(latest_commit, repo_name)
+            if todo_message:
+                send_slack_notification(todo_message)
         else:
             return
     else:
-        # 이슈 데이터 가져오기
+        # 기존 이슈/태스크 관련 메시지 처리
         issue_data = event_data['issue']
         labels = [label['name'] for label in issue_data.get('labels', [])]
         
-        # 메시지 포맷팅
         if any(label.startswith('task:') for label in labels):
             message = format_task_message(issue_data, event_name)
         elif 'todo' in labels:
@@ -272,10 +361,9 @@ def main():
         elif '📅 Daily Development Log' in issue_data['title']:
             message = format_daily_log_message(issue_data)
         else:
-            return  # 태스크나 Todo가 아닌 경우 알림 보내지 않음
-    
-    # Slack으로 전송
-    send_slack_notification(message)
+            return
+        
+        send_slack_notification(message)
 
 if __name__ == '__main__':
     main() 

@@ -8,9 +8,11 @@ on:
       - ".gitignore"
       - "LICENSE"
   issues:
-    types: [opened, edited, labeled, unlabeled, closed]
+    types: [opened, edited, labeled, unlabeled, closed, reopened]
   project_card:
-    types: [created, moved]
+    types: [created, moved, deleted, converted]
+  project_column:
+    types: [created, updated, moved, deleted]
   issue_comment:
     types: [created]
 
@@ -58,7 +60,7 @@ jobs:
           python Actions/WorkflowTracker/.github/scripts/task_processor.py
 
       - name: Update Project Board
-        if: github.event_name == 'issues' || github.event_name == 'project_card'
+        if: github.event_name == 'issues' || github.event_name == 'project_card' || github.event_name == 'project_column'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
