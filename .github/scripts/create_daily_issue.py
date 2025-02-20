@@ -292,66 +292,51 @@ def parse_existing_issue(body):
 def merge_todos(existing_todos, new_todos):
     """Merge two lists of todos, avoiding duplicates and preserving order and state"""
     result = []
-    todo_map = {}
-    category_manager = CategoryManager()
-    processed_categories = set()  # Track processed categories
+    todo_map = {}  # text -> (category, index)
+    categories = {}  # category -> list of todos
+    current_category = 'General'
     
-    # Process existing todos
-    current_category = 'General'  # Set default category as General
-    for checked, text in existing_todos:
-        if text.startswith('@'):
-            current_category = text[1:].strip()
-            if current_category.lower() not in processed_categories:  # Only add if not processed
-                result.append((False, f"@{current_category}"))
-                processed_categories.add(current_category.lower())
-            continue
-        
-        todo_map[text] = len(result)
-        result.append((checked, text))
+    # initialize General category
+    categories['General'] = []
     
-    # Process new todos
-    # Add General category if there are uncategorized items and not already added
-    if not any(t[1].startswith('@') for t in new_todos) and 'general' not in processed_categories:
-        result.insert(0, (False, "@General"))
-        processed_categories.add('general')
-        
-    for checked, text in new_todos:
-        if text.startswith('@'):
-            current_category = text[1:].strip()
-            # Add category marker if not exists
-            if current_category.lower() not in processed_categories:
-                result.append((False, f"@{current_category}"))
-                processed_categories.add(current_category.lower())
-            continue
+    # process all categories and todos
+    def process_todos(todos, update_existing=False):
+        nonlocal current_category
+        for checked, text in todos:
+            if text.startswith('@'):
+                current_category = text[1:].strip()
+                if current_category not in categories:
+                    categories[current_category] = []
+                continue
             
-        # Add General category marker for uncategorized items if not already added
-        if current_category == 'General' and 'general' not in processed_categories:
-            result.insert(0, (False, "@General"))
-            processed_categories.add('general')
+            # if the todo already exists
+            if text in todo_map:
+                if update_existing:
+                    existing_cat, existing_idx = todo_map[text]
+                    if checked:  # update the checked status
+                        categories[existing_cat][existing_idx] = (True, text)
+                continue
             
-        # Find the appropriate category section
-        category_index = next((i for i, (_, t) in enumerate(result) 
-                            if t.startswith('@') and t[1:].strip().lower() == current_category.lower()), None)
-        
-        if category_index is not None:
-            # Find the next category marker or end of list
-            next_category_index = next((i for i, (_, t) in enumerate(result[category_index + 1:], 
-                                    start=category_index + 1) if t.startswith('@')), len(result))
-            
-            if text not in todo_map:
-                # Insert the new todo just before the next category
-                result.insert(next_category_index, (checked, text))
-                # Update indices in todo_map
-                for t, idx in todo_map.items():
-                    if idx >= next_category_index:
-                        todo_map[t] = idx + 1
-                todo_map[text] = next_category_index
-                print(f"Added new todo to {current_category}: {text}")
-            else:
-                idx = todo_map[text]
-                if checked and not result[idx][0]:
-                    result[idx] = (True, text)
-                    print(f"Updated existing todo in {current_category}: {text}")
+            # add new todo
+            todo_map[text] = (current_category, len(categories[current_category]))
+            categories[current_category].append((checked, text))
+    
+    # process existing todos
+    process_todos(existing_todos, True)
+    
+    # process new todos
+    process_todos(new_todos, True)
+    
+    # generate result (add General category first)
+    if categories['General']:
+        result.append((False, "@General"))
+        result.extend(categories['General'])
+    
+    # add other categories
+    for category in categories: 
+        if category != 'General' and categories[category]:
+            result.append((False, f"@{category}"))
+            result.extend(categories[category])
     
     return result
 
