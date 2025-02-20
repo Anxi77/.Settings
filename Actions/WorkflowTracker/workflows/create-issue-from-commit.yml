@@ -13,10 +13,10 @@ permissions:
   contents: read
 
 env:
-  TIMEZONE: "Asia/Seoul"
-  ISSUE_PREFIX: "📅"
-  ISSUE_LABEL: "daily-log"
-  EXCLUDED_COMMITS: "^(chore|docs|style):"
+  TIMEZONE: "Asia/Seoul" # 타임존 설정
+  ISSUE_PREFIX: "📅" # 이슈 제목 접두사
+  ISSUE_LABEL: "daily-log" # 기본 라벨
+  EXCLUDED_COMMITS: "^(chore|docs|style):" # 제외할 커밋 타입
 
 jobs:
   create-issue:

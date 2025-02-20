@@ -36,8 +36,17 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r .github/scripts/requirements.txt
+          pip install slack_sdk
 
       - name: Create or Update Daily Issue
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python .github/scripts/create_daily_issue.py
+
+      - name: Send Slack Notification
+        if: success()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+        run: python .github/scripts/slack_notifier.py
