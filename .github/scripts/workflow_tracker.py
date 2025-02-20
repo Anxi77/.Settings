@@ -21,22 +21,49 @@ def is_merge_commit_message(message):
 
 def parse_commit_message(message):
     """Parse commit message"""
-    pattern = r'(?i)\[(.*?)\] (.*?)(?:\s*\n\s*\[body\](.*?))?(?:\s*\n\s*\[todo\](.*?))?(?:\s*\n\s*\[footer\](.*?))?$'
-    match = re.search(pattern, message, re.DOTALL | re.IGNORECASE)
-    if not match:
-        print(f"Failed to parse commit message: {message.split('\n')[0]}")
+    print(f"\n=== Parsing Commit Message ===")
+    print(f"Raw message:\n{message}")
+    
+    sections = {}
+    current_section = 'title'
+    lines = []
+    
+    for line in message.split('\n'):
+        line = line.strip()
+        if not line:
+            continue
+            
+        if line.startswith('[') and line.endswith(']'):
+            if lines:
+                sections[current_section] = '\n'.join(lines)
+            current_section = line[1:-1].lower()
+            lines = []
+        else:
+            lines.append(line)
+    
+    if lines:
+        sections[current_section] = '\n'.join(lines)
+    
+    print("\nParsed sections:", sections.keys())
+    for section, content in sections.items():
+        print(f"\n{section}:\n{content}")
+    
+    # 타입과 제목 파싱
+    title_match = re.match(r'\[(.*?)\]\s*(.*)', sections.get('title', ''))
+    if not title_match:
+        print("Failed to parse title section")
         return None
     
-    commit_type = match.group(1).lower()
+    commit_type = title_match.group(1).lower()
     type_info = COMMIT_TYPES.get(commit_type, {'emoji': '🔍', 'label': 'other', 'description': 'Other'})
     
     return {
         'type': commit_type,
         'type_info': type_info,
-        'title': match.group(2),
-        'body': match.group(3),
-        'todo': match.group(4),
-        'footer': match.group(5)
+        'title': title_match.group(2),
+        'body': sections.get('body', ''),
+        'todo': sections.get('todo', ''),
+        'footer': sections.get('footer', '')
     }
 
 class CategoryManager:
@@ -314,10 +341,17 @@ def parse_existing_issue(body):
 def convert_to_checkbox_list(text):
     """TODO 텍스트를 체크박스 리스트로 변환"""
     if not text:
+        print("DEBUG: No text to convert to checkbox list")
         return ''
+    
+    print("\n=== Converting to Checkbox List ===")
+    print(f"Input text:\n{text}")
     
     category_manager = CategoryManager()
     lines = []
+    
+    # 기본 카테고리 추가
+    lines.append("@General")
     
     for line in text.strip().split('\n'):
         line = line.strip()
@@ -335,8 +369,16 @@ def convert_to_checkbox_list(text):
             
             category_manager.add_todo(category_manager.current, todo_text)
             lines.append(f"- {todo_text}")
+        else:
+            # 일반 텍스트도 TODO 항목으로 처리
+            if not (line.startswith('[ ]') or line.startswith('[x]')):
+                line = f"[ ] {line}"
+            category_manager.add_todo('General', line)
+            lines.append(f"- {line}")
     
-    return '\n'.join(lines)
+    result = '\n'.join(lines)
+    print(f"\nConverted result:\n{result}")
+    return result
 
 def merge_todos(existing_todos, new_todos):
     """TODO 리스트 병합"""
