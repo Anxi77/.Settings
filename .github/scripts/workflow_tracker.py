@@ -483,25 +483,17 @@ def convert_to_checkbox_list(text: str) -> str:
             logger.debug(f"Setting category to: {current_category}")
         elif line.startswith(('-', '*')):
             todo_text = line[1:].strip()
-            # 체크박스가 이미 있는지 확인
-            if todo_text.startswith('[ ]') or todo_text.startswith('[x]'):
-                todo_manager.add_todo(todo_text, category=current_category)
-            else:
-                todo_manager.add_todo(todo_text, category=current_category)
+            todo_manager.add_todo(todo_text, category=current_category)
             logger.debug(f"Adding todo to category '{current_category}': {todo_text}")
-        else:
-            # 일반 텍스트 처리
-            if line.startswith('[ ]') or line.startswith('[x]'):
-                todo_manager.add_todo(line, category=current_category)
-            else:
-                todo_manager.add_todo(line, category=current_category)
-            logger.debug(f"Adding todo to category '{current_category}': {line}")
 
     todos = todo_manager.get_all_todos()
     result = []
     
     for checked, text in todos:
-        result.append(text)
+        if text.startswith('@'):
+            result.append(text)
+        else:
+            result.append(f"- [ ] {text}")
     
     final_result = '\n'.join(result)
     logger.debug(f"Converted result:\n{final_result}")
@@ -519,15 +511,22 @@ def merge_todos(existing_todos: List[Tuple[bool, str]], new_todos: List[Tuple[bo
                 current_category = text[1:].strip()
                 todo_manager.set_category(current_category)
             else:
+                # 체크박스 형식 제거
+                clean_text = text
+                if clean_text.startswith('- [ ]') or clean_text.startswith('- [x]'):
+                    clean_text = clean_text[6:].strip()
+                elif clean_text.startswith('[ ]') or clean_text.startswith('[x]'):
+                    clean_text = clean_text[4:].strip()
+                
                 if update_existing and checked:
                     # Update existing todo's checked status
                     for todos in todo_manager.categories.values():
                         for todo in todos:
-                            if todo.text == text:
+                            if todo.text == clean_text:
                                 todo.checked = checked
                                 break
                 else:
-                    todo_manager.add_todo(text, checked, current_category)
+                    todo_manager.add_todo(clean_text, checked, current_category)
 
     # Process existing todos first
     process_todos(existing_todos, True)
