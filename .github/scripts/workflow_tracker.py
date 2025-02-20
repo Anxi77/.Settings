@@ -325,6 +325,7 @@ def merge_todos(existing_todos, new_todos):
                 current_category = text[1:].strip()
                 if current_category not in categories:
                     categories[current_category] = []
+                result.append((False, f"@{current_category}"))
                 continue
             
             # if the todo already exists
@@ -338,23 +339,13 @@ def merge_todos(existing_todos, new_todos):
             # add new todo
             todo_map[text] = (current_category, len(categories[current_category]))
             categories[current_category].append((checked, text))
+            result.append((checked, text))
     
     # process existing todos
     process_todos(existing_todos, True)
     
     # process new todos
     process_todos(new_todos, True)
-    
-    # generate result (add General category first)
-    if categories['General']:
-        result.append((False, "@General"))
-        result.extend(categories['General'])
-    
-    # add other categories
-    for category in categories: 
-        if category != 'General' and categories[category]:
-            result.append((False, f"@{category}"))
-            result.extend(categories[category])
     
     return result
 
@@ -373,7 +364,7 @@ def convert_to_checkbox_list(text):
     print("\n=== Converting to Checkbox List ===")
     print(f"Input text:\n{text}")
     
-    result = []
+    lines = []
     current_category = None
     
     for line in text.strip().split('\n'):
@@ -382,19 +373,25 @@ def convert_to_checkbox_list(text):
             continue
         
         if line.startswith('@'):
+            # 카테고리 정규화
             current_category = normalize_category(line[1:])
-            result.append(f"@{current_category}")
+            lines.append(f"@{current_category}")
             print(f"Found category: @{current_category}")
         elif line.startswith(('-', '*')):
             todo_text = line[1:].strip()
+            # 체크박스가 이미 있는지 확인
+            if not (todo_text.startswith('[ ]') or todo_text.startswith('[x]')):
+                todo_text = f"[ ] {todo_text}"
+            
             if not current_category:
                 current_category = 'General'
-                result.append(f"@{current_category}")
+                lines.append(f"@{current_category}")
                 print(f"Using default category: @{current_category}")
-            result.append(f"- [ ] {todo_text}")
+            
+            lines.append(f"- {todo_text}")
             print(f"Added todo item to @{current_category}: {todo_text}")
     
-    result = '\n'.join(result)
+    result = '\n'.join(lines)
     print(f"\nConverted result:\n{result}")
     return result
 
@@ -425,12 +422,16 @@ def create_todo_section(todos):
         if current_category not in categorized:
             categorized[current_category] = []
         
-        # 중복 체크
-        if not any(text == todo_text for _, text in categorized[current_category]):
-            categorized[current_category].append((checked, todo_text))
-            print(f"Added to category '{current_category}': {todo_text}")
+        # 체크박스 처리
+        if todo_text.startswith('[ ]') or todo_text.startswith('[x]'):
+            # 이미 체크박스가 있는 경우
+            is_checked = todo_text.startswith('[x]')
+            text = todo_text[4:].strip()  # 체크박스 제거
+            categorized[current_category].append((is_checked, text))
         else:
-            print(f"Skipping duplicate todo in category '{current_category}': {todo_text}")
+            # 체크박스가 없는 경우
+            categorized[current_category].append((checked, todo_text))
+        print(f"Added to category '{current_category}': {todo_text}")
     
     # process categorized todos
     sections = []
