@@ -27,7 +27,6 @@ env:
   ISSUE_PREFIX: "📅"
   ISSUE_LABEL: "DSR"
   EXCLUDED_COMMITS: "^(chore|docs|style):"
-  TODO_CATEGORIES: "testing,improvements,documentation" # 기본 TODO 카테고리 설정
 
 jobs:
   process-workflow:

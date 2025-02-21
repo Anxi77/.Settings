@@ -20,21 +20,17 @@ class WorkflowLogger:
             self.logger.addHandler(handler)
     
     def section(self, title: str, message: str = '') -> None:
-        """섹션 헤더와 메시지를 출력합니다."""
         self.logger.info(f"{title}")
         if message:
             print(f"{message}")
     
     def commit(self, action: str, sha: str, message: str, extra: str = '') -> None:
-        """커밋 관련 로그를 출력합니다."""
         print(f"{action}: [{sha[:7]}] {message}{' - ' + extra if extra else ''}")
     
     def todo(self, status: str, text: str) -> None:
-        """TODO 항목 관련 로그를 출력합니다."""
         print(f"{status}: {text}")
     
     def debug(self, message: str) -> None:
-        """디버그 메시지를 출력합니다."""
         print(f"DEBUG: {message}")
 
 logger = WorkflowLogger()
@@ -51,7 +47,6 @@ COMMIT_TYPES = {
 }
 
 def is_merge_commit_message(message):
-    """Check if the message is a merge commit message"""
     return message.startswith('Merge')
 
 class CommitMessage:
@@ -65,36 +60,30 @@ class CommitMessage:
 
     @classmethod
     def parse(cls, message: str) -> Optional['CommitMessage']:
-        """Parse commit message into structured format"""
         sections = {'title': '', 'body': '', 'todo': '', 'footer': ''}
         current_section = 'title'
         lines = []
 
-        # 첫 줄은 항상 title
         message_lines = message.split('\n')
         if not message_lines:
             return None
             
         sections['title'] = message_lines[0].strip()
         
-        # 나머지 줄 처리
         for line in message_lines[1:]:
             line = line.strip()
             if not line:
                 continue
 
-            # 섹션 헤더 확인 (대소문자 구분 없이)
             if line.lower() in ['[body]', '[todo]', '[footer]']:
                 current_section = line.strip('[]').lower()
                 continue
             
-            # 현재 섹션에 라인 추가
             if current_section in sections:
                 if sections[current_section]:
                     sections[current_section] += '\n'
                 sections[current_section] += line
 
-        # Parse type and title
         title_match = re.match(r'\[(.*?)\]\s*(.*)', sections['title'])
         if not title_match:
             return None
@@ -108,7 +97,6 @@ class CommitMessage:
         )
 
 def parse_commit_message(message: str) -> Optional[Dict]:
-    """Parse commit message using CommitMessage class"""
     commit = CommitMessage.parse(message)
     if not commit:
         return None
@@ -126,10 +114,9 @@ class CategoryManager:
     def __init__(self):
         self._categories = {}
         self._current = 'General'
-        self.add_category('General')  # 기본 카테고리 초기화
+        self.add_category('General')
     
     def add_category(self, category):
-        """카테고리 추가 또는 기존 카테고리 반환"""
         if not category:
             return self._categories['General']
             
@@ -139,33 +126,27 @@ class CategoryManager:
         return category
     
     def add_todo(self, category, todo_item):
-        """카테고리에 TODO 항목 추가"""
         category = self.add_category(category)
         if todo_item not in self._categories[category]:
             self._categories[category].append(todo_item)
     
     def get_todos(self, category=None):
-        """특정 카테고리 또는 전체 TODO 항목 반환"""
         if category:
             return self._categories.get(category, [])
         return self._categories
     
     def set_current(self, category):
-        """현재 카테고리 설정"""
         self._current = self.add_category(category)
     
     @property
     def current(self):
-        """현재 카테고리 반환"""
         return self._current
 
     @property
     def categories(self):
-        """모든 카테고리 반환"""
         return list(self._categories.keys())
 
 def parse_categorized_todos(text):
-    """Parse todos with categories"""
     if not text:
         logger.debug("DEBUG: No todo text provided")
         return {}
@@ -201,17 +182,14 @@ def parse_categorized_todos(text):
     return categories
 
 def create_commit_section(commit_data, branch, commit_sha, author, time_string, repo):
-    """Create commit section with details tag"""
     logger.section("Creating Commit Section")
     logger.debug(f"Commit SHA: {commit_sha[:7]}")
     logger.debug(f"Author: {author}")
     logger.debug(f"Time: {time_string}")
     
-    # Handle None values in commit data
     body = commit_data.get('body', '').strip() if commit_data.get('body') else ''
     footer = commit_data.get('footer', '').strip() if commit_data.get('footer') else ''
 
-    # Format body with bullet points
     body_lines = []
     if body:
         logger.debug("\nProcessing commit body:")
@@ -224,7 +202,6 @@ def create_commit_section(commit_data, branch, commit_sha, author, time_string, 
                 logger.debug(f"Added body line: {line}")
     quoted_body = '\n'.join(body_lines)
     
-    # 현재 DSR 이슈 찾기
     current_date = datetime.now(pytz.timezone(os.environ.get('TIMEZONE', 'Asia/Seoul'))).strftime('%Y-%m-%d')
     dsr_issues = repo.get_issues(state='open', labels=[os.environ.get('ISSUE_LABEL', 'dsr')])
     current_dsr = None
@@ -234,24 +211,19 @@ def create_commit_section(commit_data, branch, commit_sha, author, time_string, 
             current_dsr = issue
             break
     
-    # Extract issue numbers from entire commit message
     full_message = f"{commit_data['title']}\n{body}\n{footer}"
     issue_numbers = set(re.findall(r'#(\d+)', full_message))
     
-    # Add current DSR issue number if found
     if current_dsr:
         issue_numbers.add(str(current_dsr.number))
     
-    # Add comments to referenced issues and prepare related issues section
     related_issues = []
     
-    # Process referenced issues
     if issue_numbers:
         logger.debug(f"\nProcessing referenced issues: {issue_numbers}")
         for issue_num in issue_numbers:
             try:
                 issue = repo.get_issue(int(issue_num))
-                # DSR 이슈인 경우 다른 메시지 사용
                 if str(issue.number) == str(current_dsr.number):
                     issue.create_comment(f"커밋이 추가되었습니다: {commit_sha[:7]}\n\n```\n{commit_data['title']}\n```")
                 else:
@@ -261,7 +233,6 @@ def create_commit_section(commit_data, branch, commit_sha, author, time_string, 
             except Exception as e:
                 logger.debug(f"Failed to add comment to issue #{issue_num}: {str(e)}")
     
-    # Add related issues section
     if related_issues:
         quoted_body += "\n> \n> Related Issues:\n> " + "\n> ".join(related_issues)
     
@@ -280,7 +251,6 @@ def create_commit_section(commit_data, branch, commit_sha, author, time_string, 
     return section
 
 def create_section(title, content):
-    """Create collapsible section"""
     if not content:
         return ''
     
@@ -291,24 +261,20 @@ def create_section(title, content):
 </details>'''
 
 def parse_existing_issue(body):
-    """Parse existing issue body to extract branch commits and todos"""
     logger.section("Parsing Issue Body")
-    # Initialize result structure
     result = {
         'branches': {},
         'todos': []
     }
     
-    # Parse branch section
     logger.section("Parsing Branch Summary")
-    print("\n=== Parsing Branch Summary ===")
     branch_pattern = r'<details>\s*<summary><h3 style="display: inline;">✨\s*(\w+)</h3></summary>(.*?)</details>'
     branch_blocks = re.finditer(branch_pattern, body, re.DOTALL)
     
     for block in branch_blocks:
         branch_name = block.group(1)
         branch_content = block.group(2).strip()
-        print(f"\nFound branch: {branch_name}")
+        logger.debug(f"\nFound branch: {branch_name}")
         
         commits = []
         lines = branch_content.split('\n')
@@ -322,40 +288,37 @@ def parse_existing_issue(body):
                 
             if '> <details>' in line:
                 if in_commit_block:
-                    # save previous commit block
                     commits.append('\n'.join(current_commit))
                 in_commit_block = True
                 current_commit = [line]
-                print(f"Starting new commit block: {line}")
+                logger.debug(f"Starting new commit block: {line}")
             elif in_commit_block:
                 current_commit.append(line)
                 if '> </details>' in line:
                     commits.append('\n'.join(current_commit))
-                    print(f"Completed commit block: {current_commit[0]}")
+                    logger.debug(f"Completed commit block: {current_commit[0]}")
                     in_commit_block = False
                     current_commit = []
         
-        # handle the last commit block
         if in_commit_block and current_commit:
             commits.append('\n'.join(current_commit))
         
         if commits:
             result['branches'][branch_name] = '\n\n'.join(commits)
-            print(f"Parsed {len(commits)} commits from {branch_name}")
-            print("Commits found:")
+            logger.debug(f"Parsed {len(commits)} commits from {branch_name}")
+            logger.debug("Commits found:")
             for commit in commits:
-                print(f"- {commit.split('\n')[0]}")
+                logger.debug(f"- {commit.split('\n')[0]}")
         else:
-            print(f"No commits found in branch {branch_name}")
+            logger.debug(f"No commits found in branch {branch_name}")
     
-    print("\nParsed branches:", list(result['branches'].keys()))
+    logger.debug(f"\nParsed branches: {list(result['branches'].keys())}")
     
-    # Parse Todo section
     todo_pattern = r'## 📝 Todo\s*\n\n(.*?)(?=\n\n<div align="center">|$)'
     todo_match = re.search(todo_pattern, body, re.DOTALL)
     if todo_match:
         todo_section = todo_match.group(1).strip()
-        print(f"\nFound TODO section:\n{todo_section}")
+        logger.debug(f"\nFound TODO section:\n{todo_section}")
         if todo_section:
             current_category = 'General'
             for line in todo_section.split('\n'):
@@ -363,35 +326,32 @@ def parse_existing_issue(body):
                 if not line:
                     continue
                     
-                # skip details tags 
                 if '<details>' in line:
-                    print(f"Skipping details tag: {line}")
+                    logger.debug(f"Skipping details tag: {line}")
                     continue
                 if '</details>' in line:
                     continue
                 if '⚫' in line:
                     continue
                     
-                # process category header - extract category name and ignore statistics
                 if '<summary>' in line:
                     category_match = re.match(r'<summary>(?:<h3[^>]*>)?📑\s*([^()]+?)(?:\s*\(\d+/\d+\))?(?:</h3>)?</summary>', line)
                     if category_match:
                         current_category = category_match.group(1).strip()
-                        print(f"\nFound category: {current_category}")
+                        logger.debug(f"\nFound category: {current_category}")
                         result['todos'].append((False, f"@{current_category}"))
                     continue
                 
-                # process todo items
                 checkbox_match = re.match(r'-\s*\[([ xX])\]\s*(.*)', line)
                 if checkbox_match:
                     is_checked = checkbox_match.group(1).lower() == 'x'
                     todo_text = checkbox_match.group(2).strip()
-                    print(f"Found TODO item: [{is_checked}] {todo_text}")
+                    logger.debug(f"Found TODO item: [{is_checked}] {todo_text}")
                     result['todos'].append((is_checked, todo_text))
     
-    print("\nParsed TODOs:")
+    logger.debug("\nParsed TODOs:")
     for checked, text in result['todos']:
-        print(f"- [{'x' if checked else ' '}] {text}")
+        logger.debug(f"- [{'x' if checked else ' '}] {text}")
     
     return result
 
@@ -426,7 +386,6 @@ class TodoManager:
         return self._current_category
 
     def set_category(self, category: str) -> None:
-        """Set current category and ensure it exists"""
         category = category.strip() if category else 'General'
         self._current_category = category
         if category not in self.categories:
@@ -434,7 +393,6 @@ class TodoManager:
         logger.debug(f"Category set to: {category}")
 
     def add_todo(self, text: str, checked: bool = False, category: str = None) -> None:
-        """Add a new todo item"""
         use_category = category if category else self.current_category
         self.set_category(use_category)
         
@@ -444,15 +402,12 @@ class TodoManager:
             logger.debug(f"Added todo to category '{use_category}': {text}")
 
     def get_all_todos(self) -> List[Tuple[bool, str]]:
-        """Get all todos in format compatible with existing code"""
         result = []
-        # 먼저 General 카테고리 처리
         if self.categories.get('General'):
             result.append((False, "@General"))
             for todo in self.categories['General']:
                 result.append((todo.checked, todo.text))
         
-        # 나머지 카테고리 처리 (알파벳 순)
         for category in sorted(cat for cat in self.categories if cat != 'General'):
             if self.categories[category]:
                 result.append((False, f"@{category}"))
@@ -461,7 +416,6 @@ class TodoManager:
         return result
 
 def convert_to_checkbox_list(text: str) -> str:
-    """Convert text to checkbox list using TodoManager"""
     if not text:
         logger.debug("No text to convert to checkbox list")
         return ''
@@ -500,7 +454,6 @@ def convert_to_checkbox_list(text: str) -> str:
     return final_result
 
 def merge_todos(existing_todos: List[Tuple[bool, str]], new_todos: List[Tuple[bool, str]]) -> List[Tuple[bool, str]]:
-    """Merge two lists of todos using TodoManager"""
     todo_manager = TodoManager()
     current_category = 'General'
 
@@ -511,7 +464,6 @@ def merge_todos(existing_todos: List[Tuple[bool, str]], new_todos: List[Tuple[bo
                 current_category = text[1:].strip()
                 todo_manager.set_category(current_category)
             else:
-                # 체크박스 형식 제거
                 clean_text = text
                 if clean_text.startswith('- [ ]') or clean_text.startswith('- [x]'):
                     clean_text = clean_text[6:].strip()
@@ -519,7 +471,6 @@ def merge_todos(existing_todos: List[Tuple[bool, str]], new_todos: List[Tuple[bo
                     clean_text = clean_text[4:].strip()
                 
                 if update_existing and checked:
-                    # Update existing todo's checked status
                     for todos in todo_manager.categories.values():
                         for todo in todos:
                             if todo.text == clean_text:
@@ -528,28 +479,23 @@ def merge_todos(existing_todos: List[Tuple[bool, str]], new_todos: List[Tuple[bo
                 else:
                     todo_manager.add_todo(clean_text, checked, current_category)
 
-    # Process existing todos first
     process_todos(existing_todos, True)
-    # Then process new todos
     process_todos(new_todos)
 
     return todo_manager.get_all_todos()
 
 def normalize_category(category):
-    """Normalize category name"""
     if not category:
         return 'General'
     return category.strip().replace(' ', '_')
 
 def create_todo_section(todos: List[Tuple[bool, str]]) -> str:
-    """Create todo section using TodoManager"""
     if not todos:
         return ''
 
     todo_manager = TodoManager()
     current_category = 'General'
 
-    # Process all todos
     for checked, text in todos:
         if text.startswith('@'):
             current_category = text[1:].strip()
@@ -557,7 +503,6 @@ def create_todo_section(todos: List[Tuple[bool, str]]) -> str:
         else:
             todo_manager.add_todo(text, checked, current_category)
 
-    # Create sections for each category
     sections = []
     for category in ['General'] + sorted(cat for cat in todo_manager.categories if cat != 'General'):
         todos = todo_manager.categories[category]
@@ -579,8 +524,6 @@ def create_todo_section(todos: List[Tuple[bool, str]]) -> str:
     return '\n\n'.join(sections)
 
 def get_previous_day_todos(repo, issue_label, current_date):
-    """Get unchecked todos from the previous day's issue"""
-    # Find previous day's issue
     previous_issues = repo.get_issues(state='open', labels=[issue_label])
     previous_todos = []
     previous_issue = None
@@ -588,84 +531,75 @@ def get_previous_day_todos(repo, issue_label, current_date):
     for issue in previous_issues:
         if issue.title.startswith('📅 Daily Development Log') and issue.title != f'📅 Daily Development Log ({current_date})':
             previous_issue = issue
-            # Parse todos from previous issue
             existing_content = parse_existing_issue(issue.body)
-            # Get only unchecked todos
             previous_todos = [(False, todo[1]) for todo in existing_content['todos'] if not todo[0]]
-            # Close previous issue
             issue.edit(state='closed')
             break
     
     return previous_todos
 
 def is_commit_already_logged(commit_message, existing_content):
-    """check if the commit is already logged"""
-    # extract the title part of the commit message
     commit_title = commit_message.split('\n')[0].strip()
     
-    print(f"\n=== Checking for duplicate commit ===")
-    print(f"Checking commit: {commit_title}")
+    logger.debug(f"\n=== Checking for duplicate commit ===")
+    logger.debug(f"Checking commit: {commit_title}")
     
-    # check if the commit is already logged
     for branch_content in existing_content['branches'].values():
         commit_blocks = branch_content.split('\n\n')
         for block in commit_blocks:
             if '> <summary>' in block:
                 block_title = block.split('> <summary>')[1].split('</summary>')[0].strip()
                 if commit_title in block_title:
-                    print(f"Found matching commit: {block_title}")
+                    logger.debug(f"Found matching commit: {block_title}")
                     return True
     
-    print(f"No matching commit found")
+    logger.debug(f"No matching commit found")
     return False
 
 def get_merge_commits(repo, merge_commit):
-    """get the child commits of the merge commit"""
-    if len(merge_commit.parents) != 2:  # not a merge commit
-        print("Not a merge commit - skipping")
+    if len(merge_commit.parents) != 2:
+        logger.debug("Not a merge commit - skipping")
         return []
     
     parent1 = merge_commit.parents[0]
     parent2 = merge_commit.parents[1]
     
-    print(f"\n=== Merge Commit Analysis ===")
-    print(f"Merge commit SHA: {merge_commit.sha}")
-    print(f"Parent1 SHA: {parent1.sha}")
-    print(f"Parent2 SHA: {parent2.sha}")
+    logger.debug(f"\n=== Merge Commit Analysis ===")
+    logger.debug(f"Merge commit SHA: {merge_commit.sha}")
+    logger.debug(f"Parent1 SHA: {parent1.sha}")
+    logger.debug(f"Parent2 SHA: {parent2.sha}")
     
     try:
-        # get the commits from each parent
         comparison1 = repo.compare(parent1.sha, merge_commit.sha)
         comparison2 = repo.compare(parent2.sha, merge_commit.sha)
         
         commits1 = list(comparison1.commits)
         commits2 = list(comparison2.commits)
         
-        print(f"\n=== Commit Analysis ===")
-        print(f"Parent1 commits count: {len(commits1)}")
-        print("Parent1 commits:")
+        logger.debug(f"\n=== Commit Analysis ===")
+        logger.debug(f"Parent1 commits count: {len(commits1)}")
+        logger.debug("Parent1 commits:")
         for c in commits1:
-            print(f"- [{c.sha[:7]}] {c.commit.message.split('\n')[0]}")
+            logger.debug(f"- [{c.sha[:7]}] {c.commit.message.split('\n')[0]}")
         
-        print(f"\nParent2 commits count: {len(commits2)}")
-        print("Parent2 commits:")
+        logger.debug(f"\nParent2 commits count: {len(commits2)}")
+        logger.debug("Parent2 commits:")
         for c in commits2:
-            print(f"- [{c.sha[:7]}] {c.commit.message.split('\n')[0]}")
+            logger.debug(f"- [{c.sha[:7]}] {c.commit.message.split('\n')[0]}")
         
-        # remove duplicate commits and merge commits
         unique_commits = []
         seen_messages = set()
         
         for commit_list in [commits1, commits2]:
             for commit in commit_list:
                 msg = commit.commit.message.strip()
-                if not is_merge_commit_message(msg) and msg not in seen_messages:  # Exclude merge commits
+                if not is_merge_commit_message(msg) and msg not in seen_messages:
                     seen_messages.add(msg)
                     unique_commits.append(commit)
-        
-        print(f"\nUnique commits found: {len(unique_commits)}")
+
+        logger.debug(f"\nUnique commits found: {len(unique_commits)}")
         for c in unique_commits:
-            print(f"- [{c.sha[:7]}] {c.commit.message.split('\n')[0]}")
+            logger.debug(f"- [{c.sha[:7]}] {c.commit.message.split('\n')[0]}")
         
         return unique_commits
         
@@ -676,33 +610,25 @@ def get_merge_commits(repo, merge_commit):
         return []
 
 def get_commit_summary(commit):
-    """Get a formatted commit summary"""
     sha = commit.sha[:7]
     msg = commit.commit.message.strip().split('\n')[0]
     return f"[{sha}] {msg}"
 
 def log_commit_status(commit, status, extra_info=''):
-    """Log commit status with consistent format"""
     summary = get_commit_summary(commit)
-    print(f"{status}: {summary}{' - ' + extra_info if extra_info else ''}")
+    logger.debug(f"{status}: {summary}{' - ' + extra_info if extra_info else ''}")
 
 def is_daily_log_issue(issue_title):
-    """Check if an issue is a DSR"""
     return issue_title.startswith('📅 Development Status Report')
 
 def is_issue_todo(todo_text):
-    """Check if todo item should be created as an issue"""
     return todo_text.strip().startswith('(issue)')
 
 def create_issue_from_todo(repo, todo_text, category, parent_issue_number=None):
-    """Create a new issue from todo item"""
-    # Remove '(issue)' prefix and strip whitespace
     title = todo_text.replace('(issue)', '', 1).strip()
     
-    # Create issue title with category
     issue_title = f"[{category}] {title}"
     
-    # Create issue body with daily log reference
     body = f"""## 📌 Task Description
 {title}
 
@@ -713,7 +639,6 @@ def create_issue_from_todo(repo, todo_text, category, parent_issue_number=None):
 - Created from Daily Log: #{parent_issue_number}
 """
     
-    # Create labels
     labels = ['todo-generated', f'category:{category}']
     
     try:
@@ -722,21 +647,19 @@ def create_issue_from_todo(repo, todo_text, category, parent_issue_number=None):
             body=body,
             labels=labels
         )
-        print(f"Created new issue #{new_issue.number}: {issue_title}")
-        
-        # Add reference comment to the parent issue
+        logger.debug(f"Created new issue #{new_issue.number}: {issue_title}")
+            
         if parent_issue_number:
             parent_issue = repo.get_issue(parent_issue_number)
             parent_issue.create_comment(f"Created issue #{new_issue.number} from todo item")
         
         return new_issue
     except Exception as e:
-        print(f"Failed to create issue for todo: {title}")
-        print(f"Error: {str(e)}")
+        logger.error(f"Failed to create issue for todo: {title}")
+        logger.error(f"Error: {str(e)}")
         return None
 
 def process_todo_items(repo, todos, parent_issue_number):
-    """Process todo items and create issues for marked items"""
     processed_todos = []
     created_issues = []
     
@@ -748,11 +671,9 @@ def process_todo_items(repo, todos, parent_issue_number):
             continue
             
         if is_issue_todo(text):
-            # Create new issue
             new_issue = create_issue_from_todo(repo, text, current_category, parent_issue_number)
             if new_issue:
                 created_issues.append(new_issue)
-                # Add only the issue number as a todo item
                 processed_todos.append((checked, f"#{new_issue.number}"))
         else:
             processed_todos.append((checked, text))
@@ -760,66 +681,56 @@ def process_todo_items(repo, todos, parent_issue_number):
     return processed_todos, created_issues
 
 def get_todays_commits(repo, branch, timezone):
-    """Get all commits from today for the specified branch"""
     tz = pytz.timezone(timezone)
     today = datetime.now(tz).date()
     
     print(f"\n=== Getting Today's Commits for {branch} ===")
     
     try:
-        # get commits of the branch
         commits = repo.get_commits(sha=branch)
         todays_commits = []
         
         for commit in commits:
-            # GitHub API returns UTC time, so convert to specified timezone
             commit_date = commit.commit.author.date.replace(tzinfo=pytz.UTC).astimezone(tz).date()
             commit_time = commit.commit.author.date.replace(tzinfo=pytz.UTC).astimezone(tz)
             
             if commit_date == today:
                 if not is_merge_commit_message(commit.commit.message):
                     todays_commits.append((commit_time, commit))
-                    print(f"Found commit: [{commit.sha[:7]}] {commit.commit.message.split('\n')[0]} at {commit_time.strftime('%H:%M:%S')}")
+                    logger.debug(f"Found commit: [{commit.sha[:7]}] {commit.commit.message.split('\n')[0]} at {commit_time.strftime('%H:%M:%S')}")
             elif commit_date < today:
                 break
         
-        # sort by time (latest first)
         todays_commits.sort(key=lambda x: x[0], reverse=True)
         sorted_commits = [commit for _, commit in todays_commits]
         
-        print(f"\nFound {len(sorted_commits)} commits for today")
+        logger.debug(f"\nFound {len(sorted_commits)} commits for today")
         return sorted_commits
         
     except Exception as e:
-        print(f"Error getting commits: {str(e)}")
+        logger.error(f"Error getting commits: {str(e)}")
         return []
 
 def update_readme_with_daily_log(repo, issue_number, issue_title):
-    """Update README.md with the latest daily log link"""
     try:
-        # Get README content
         readme = repo.get_contents("README.md")
         content = readme.decoded_content.decode('utf-8')
         
-        # Prepare new daily log section
         daily_log_section = f'''## 📌 Latest Development Status Report
 [{issue_title}](../../issues/{issue_number})
 '''
         
-        # Check if daily log section exists
         daily_log_pattern = r'## 📌 Latest Development Status Report\n\[.*?\]\(.*?\)\n'
         if re.search(daily_log_pattern, content):
-            # Update existing section
+            new_content = re.sub(daily_log_pattern, daily_log_section, content)
             new_content = re.sub(daily_log_pattern, daily_log_section, content)
         else:
-            # Add new section at the top after the first heading
             first_heading_end = content.find('\n', content.find('#'))
             if first_heading_end == -1:
                 new_content = daily_log_section + '\n' + content
             else:
                 new_content = content[:first_heading_end + 1] + '\n' + daily_log_section + content[first_heading_end + 1:]
         
-        # Update README
         repo.update_file(
             path="README.md",
             message=f"docs: Update DSR link to #{issue_number}",
@@ -829,18 +740,15 @@ def update_readme_with_daily_log(repo, issue_number, issue_title):
         print(f"Updated README.md with DSR #{issue_number}")
         
     except Exception as e:
-        print(f"Failed to update README: {str(e)}")
+        logger.error(f"Failed to update README: {str(e)}")
 
 def find_active_dsr_issue(repo: Repository, date_string: str, issue_title: str) -> Optional[Issue]:
-    """Find active DSR issue for the given date"""
     logger.section("Searching for Active DSR Issue")
     
-    # DSR 라벨로 검색
     dsr_issues = repo.get_issues(state='open', labels=['DSR'])
-    
+
     for issue in dsr_issues:
         logger.debug(f"Checking issue #{issue.number}: {issue.title}")
-        # 정확한 제목 매칭으로 오늘의 DSR 이슈 찾기
         if issue.title == issue_title:
             logger.debug(f"Found today's DSR issue: #{issue.number}")
             return issue
@@ -849,32 +757,26 @@ def find_active_dsr_issue(repo: Repository, date_string: str, issue_title: str) 
     return None
 
 def main():
-    # Initialize GitHub token and environment variables
     github_token = os.environ['GITHUB_TOKEN']
     timezone = os.environ.get('TIMEZONE', 'Asia/Seoul')
     issue_prefix = os.environ.get('ISSUE_PREFIX', '📅')
     excluded_pattern = os.environ.get('EXCLUDED_COMMITS', '^(chore|docs|style):')
 
-    # Initialize GitHub API client
     g = Github(github_token)
     
-    # Get repository and branch information
     repository = os.environ['GITHUB_REPOSITORY']
     repo = g.get_repo(repository)
     branch = os.environ['GITHUB_REF'].replace('refs/heads/', '')
     
-    # Get current time in specified timezone
     tz = pytz.timezone(timezone)
     now = datetime.now(tz)
     date_string = now.strftime('%Y-%m-%d')
     time_string = now.strftime('%H:%M:%S')
 
-    # Get repository name from full path
     repo_name = repository.split('/')[-1]
     if repo_name.startswith('.'):
         repo_name = repo_name[1:]
 
-    # Create consistent issue title format
     issue_title = f"{issue_prefix} Development Status Report ({date_string})"
     if repo_name:
         issue_title += f" - {repo_name}"
@@ -882,14 +784,12 @@ def main():
     logger.section("Issue Title Format")
     logger.debug(f"Using title format: {issue_title}")
 
-    # Get today's commits and sort by time
     commits_to_process = get_todays_commits(repo, branch, timezone)
     
     if not commits_to_process:
         logger.debug("No commits found for today")
         return
 
-    # Find today's DSR issue
     today_issue = find_active_dsr_issue(repo, date_string, issue_title)
     previous_todos = []
     existing_content = {'branches': {}}
@@ -902,7 +802,6 @@ def main():
                 status = "✅ Completed" if todo[0] else "⬜ Pending"
                 logger.todo(status, todo[1])
 
-    # Find and process previous DSR issues
     previous_issues = repo.get_issues(state='open', labels=['DSR'])
     for issue in previous_issues:
         if issue != today_issue and issue.title.startswith(f"{issue_prefix} Development Status Report"):
@@ -935,7 +834,6 @@ def main():
             issue.edit(state='closed')
             logger.debug(f"Closed previous issue #{issue.number}")
 
-    # process commits
     print("\n=== Filtering commits ===")
     filtered_commits = []
     seen_messages = set()
@@ -964,29 +862,23 @@ def main():
         print("No new commits to process after filtering")
         return
 
-    # Get current time in specified timezone
     tz = pytz.timezone(timezone)
     now = datetime.now(tz)
     date_string = now.strftime('%Y-%m-%d')
     time_string = now.strftime('%H:%M:%S')
 
-    # Get repository name from full path
     repo_name = repository.split('/')[-1]
     if repo_name.startswith('.'):
         repo_name = repo_name[1:]
 
-    # Create issue title
     issue_title = f"{issue_prefix} Development Status Report ({date_string}) - {repo_name}"
 
-    # Create commit sections
     commit_sections = []
     for commit_to_process in commits_to_process:
-        # Parse commit message
         commit_data = parse_commit_message(commit_to_process.commit.message)
         if not commit_data:
             continue
 
-        # Get commit time in local timezone
         commit_time = commit_to_process.commit.author.date.replace(tzinfo=pytz.UTC).astimezone(tz)
         commit_time_string = commit_time.strftime('%H:%M:%S')
         
@@ -1000,18 +892,14 @@ def main():
         )
         commit_sections.append(commit_details)
 
-    # Join all commit sections
     branch_content = '\n\n'.join(commit_sections)
 
     if today_issue:
-        # Parse existing issue
         logger.section("Current Issue's TODO Statistics")
-        print(f"Current TODOs in issue: {len(existing_content['todos'])} items")
+        logger.debug(f"Current TODOs in issue: {len(existing_content['todos'])} items")
         
-        # Maintain existing todos while adding new ones
         all_todos = existing_content['todos']
         
-        # Add todos from current commit
         current_commit = repo.get_commit(os.environ['GITHUB_SHA'])
         commit_data = parse_commit_message(current_commit.commit.message)
         if commit_data and commit_data['todo']:
@@ -1031,18 +919,15 @@ def main():
             logger.debug("Parsed new todos from current commit:")
             for checked, text in new_todos:
                 print(f"- [{checked}] {text}")
-            
-            # Merge new todos only
+
             all_todos = merge_todos(all_todos, new_todos)
         
-        # Merge previous todos
         if previous_todos:
             logger.section("TODOs Migrated from Previous Day")
             for _, todo_text in previous_todos:
                 print(f"⬜ {todo_text}")
             all_todos = merge_todos(all_todos, previous_todos)
         
-        # Process todos and create issues for marked items
         processed_todos, created_issues = process_todo_items(repo, all_todos, today_issue.number)
         
         logger.section("Created new issues from todos")
@@ -1052,7 +937,6 @@ def main():
         logger.section("Final Result")
         print(f"Total TODOs: {len(processed_todos)} items")
         
-        # Create updated body with processed todos
         branch_section = f'''<details>
 <summary><h3 style="display: inline;">✨ {branch.title()}</h3></summary>
 
@@ -1079,10 +963,8 @@ def main():
         print(f"Updated issue #{today_issue.number}")
         update_readme_with_daily_log(repo, today_issue.number, issue_title)
     else:
-        # create new issue
         all_todos = []
         
-        # add TODOs from the current commit
         current_commit = repo.get_commit(os.environ['GITHUB_SHA'])
         commit_data = parse_commit_message(current_commit.commit.message)
         if commit_data and commit_data['todo']:
@@ -1091,11 +973,9 @@ def main():
                 if line.startswith('-'):
                     all_todos.append((False, line[2:].strip()))
         
-        # merge unchecked TODOs from the previous day
         if previous_todos:
             all_todos = merge_todos(all_todos, previous_todos)
         
-        # Create initial body with commit at the top
         body = f'''# {issue_title}
 
 <div align="center">
@@ -1116,7 +996,6 @@ def main():
 
 {create_todo_section(all_todos)}'''
 
-        # Create new issue with initial content
         new_issue = repo.create_issue(
             title=issue_title,
             body=body,
