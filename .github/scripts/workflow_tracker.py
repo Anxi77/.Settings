@@ -711,37 +711,6 @@ def get_todays_commits(repo, branch, timezone):
         logger.error(f"Error getting commits: {str(e)}")
         return []
 
-def update_readme_with_daily_log(repo, issue_number, issue_title):
-    try:
-        readme = repo.get_contents("README.md")
-        content = readme.decoded_content.decode('utf-8')
-        
-        daily_log_section = f'''## 📌 Latest Development Status Report
-[{issue_title}](../../issues/{issue_number})
-'''
-        
-        daily_log_pattern = r'## 📌 Latest Development Status Report\n\[.*?\]\(.*?\)\n'
-        if re.search(daily_log_pattern, content):
-            new_content = re.sub(daily_log_pattern, daily_log_section, content)
-            new_content = re.sub(daily_log_pattern, daily_log_section, content)
-        else:
-            first_heading_end = content.find('\n', content.find('#'))
-            if first_heading_end == -1:
-                new_content = daily_log_section + '\n' + content
-            else:
-                new_content = content[:first_heading_end + 1] + '\n' + daily_log_section + content[first_heading_end + 1:]
-        
-        repo.update_file(
-            path="README.md",
-            message=f"docs: Update DSR link to #{issue_number}",
-            content=new_content,
-            sha=readme.sha
-        )
-        print(f"Updated README.md with DSR #{issue_number}")
-        
-    except Exception as e:
-        logger.error(f"Failed to update README: {str(e)}")
-
 def find_active_dsr_issue(repo: Repository, date_string: str, issue_title: str) -> Optional[Issue]:
     logger.section("Searching for Active DSR Issue")
     
@@ -961,7 +930,6 @@ def main():
 
         today_issue.edit(body=updated_body)
         print(f"Updated issue #{today_issue.number}")
-        update_readme_with_daily_log(repo, today_issue.number, issue_title)
     else:
         all_todos = []
         
@@ -1002,7 +970,6 @@ def main():
             labels=[os.environ.get('ISSUE_LABEL', 'dsr'), f"branch:{branch}"]
         )
         print(f"Created new issue #{new_issue.number}")
-        update_readme_with_daily_log(repo, new_issue.number, issue_title)
 
 if __name__ == '__main__':
     main()

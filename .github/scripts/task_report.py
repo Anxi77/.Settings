@@ -3,8 +3,7 @@ from github import Github
 from datetime import datetime
 import re
 import json
-
-# define task categories
+ 
 TASK_CATEGORIES = {
     "🔧 기능 개발": {
         "emoji": "🔧",
@@ -34,7 +33,6 @@ TASK_CATEGORIES = {
 }
 
 def find_report_issue(repo, project_name):
-    """프로젝트의 보고서 이슈를 찾습니다."""
     report_title = f"[{project_name}] 프로젝트 진행보고서"
     open_issues = repo.get_issues(state='open')
     for issue in open_issues:
@@ -43,15 +41,12 @@ def find_report_issue(repo, project_name):
     return None
 
 def get_assignees_string(issue):
-    """이슈의 담당자 목록을 문자열로 반환합니다."""
     return ', '.join([assignee.login for assignee in issue.assignees]) if issue.assignees else 'TBD'
 
 def get_task_duration(task_issue):
-    """태스크의 예상 시간을 계산합니다."""
     body_lines = task_issue.body.split('\n')
     total_days = 0
     
-    # parse Mermaid Gantt chart
     in_gantt = False
     for line in body_lines:
         line = line.strip()
@@ -59,7 +54,6 @@ def get_task_duration(task_issue):
             in_gantt = True
             continue
         if in_gantt and line and not line.startswith('```') and not line.startswith('title') and not line.startswith('dateFormat') and not line.startswith('section'):
-            # parse task line (e.g. "design mockup :2024-02-15, 3d")
             if ':' in line and 'd' in line:
                 duration = line.split(',')[-1].strip()
                 if duration.endswith('d'):
@@ -69,7 +63,6 @@ def get_task_duration(task_issue):
     return f"{total_days}d"
 
 def parse_time_spent(todo_text):
-    """TODO 항목에서 소요 시간을 추출합니다."""
     spent_match = re.search(r'\(spent:\s*(\d+)h\)', todo_text)
     if spent_match:
         return f"{spent_match.group(1)}h"
