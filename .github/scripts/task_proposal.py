@@ -4,6 +4,8 @@ from pathlib import Path
 import re
 import csv
 from io import StringIO
+import json
+from datetime import datetime
 
 def parse_csv_section(section_content):
     """CSV 섹션 내용을 파싱합니다."""
@@ -55,7 +57,8 @@ def read_csv_data(file_path):
     current_section = None
     section_content = ""
     
-    encodings = ['utf-8', 'euc-kr']
+    # 인코딩 시도 순서 수정
+    encodings = ['euc-kr', 'utf-8', 'cp949']
     
     for encoding in encodings:
         try:
@@ -63,9 +66,17 @@ def read_csv_data(file_path):
             print(f"파일 경로: {file_path}")
             
             with open(file_path, 'r', encoding=encoding) as f:
-                lines = f.readlines()
-            
+                content = f.read()
+                
+            # 파일 내용이 비어있는지 확인
+            if not content.strip():
+                print("파일이 비어있습니다")
+                continue
+                
             print(f"파일 읽기 성공 (인코딩: {encoding})")
+            print(f"파일 내용 미리보기:\n{content[:200]}...")  # 디버깅용
+            
+            lines = content.split('\n')
             
             # 기본 정보 처리
             for line in lines:
@@ -185,58 +196,68 @@ def read_csv_data(file_path):
     raise ValueError("파일을 읽을 수 없거나 데이터가 없습니다.")
 
 def create_issue_body(data, project_name):
-    """태스크 제안서 템플릿 형식으로 이슈 본문을 생성합니다."""
-    # 일정계획 데이터를 Mermaid 형식으로 변환
-    schedule_mermaid = convert_schedule_to_mermaid(data['[일정계획]'])
-    
-    body = f"""# 프로젝트 태스크 제안서
-
-## 1. 제안 개요
-
-**프로젝트명**: {project_name}  
-**태스크명**: {data['[태스크명]']}  
-**제안자**: {data.get('제안자', 'TBD')}  
-**제안일**: {data.get('제안일', 'TBD')}  
-**구현 목표일**: {data.get('구현목표일', 'TBD')}
-
-## 2. 태스크 요약
-
-### 2.1 목적
-
-{data.get('[태스크목적]', 'TBD')}
-
-### 2.2 범위
-
-{data.get('[태스크범위]', 'TBD')}
-
-## 3. 상세 내용
-
-### 메인 요구사항
-
-{data.get('[필수요구사항]', 'TBD')}
-
-### 선택 요구사항
-
-{data.get('[선택요구사항]', 'TBD')}
-
-## 4. 승인 절차
-
-이 태스크의 승인을 위해 다음 중 하나의 라벨을 추가해주세요:
-- `✅ 승인완료`: 태스크를 승인하고 진행을 시작합니다.
-- `❌ 반려`: 태스크를 반려하고 수정을 요청합니다.
-- `⏸️ 보류`: 태스크를 보류하고 추가 논의가 필요합니다.
-
-## 5. 일정 계획
-
-```mermaid
+    """이슈 본문을 생성합니다."""
+    try:
+        # 일정계획 섹션이 없거나 비어있으면 기본값 사용
+        schedule_data = data.get('[일정계획]', [])
+        if not schedule_data or len(schedule_data) == 0:
+            schedule_mermaid = """```mermaid
 gantt
-    title 태스크 구현 일정
-    dateFormat YYYY-MM-DD
-    section 개발
+    title 일정 계획
+    dateFormat  YYYY-MM-DD
+    section 기본 일정
+    일정 미정     :2025-02-21, 1d
+```"""
+        else:
+            schedule_mermaid = convert_schedule_to_mermaid(schedule_data)
+
+        # 나머지 섹션들도 비어있을 경우 처리
+        task_purpose = data.get('[태스크목적]', '(목적 미정)')
+        task_scope = format_list_items(data.get('[태스크범위]', ['(범위 미정)']))
+        required = format_list_items(data.get('[필수요구사항]', ['(필수요구사항 미정)']))
+        optional = format_list_items(data.get('[선택요구사항]', ['(선택요구사항 미정)']))
+
+        # 기본 정보도 없을 경우 처리
+        proposer = data.get('제안자', '미정')
+        proposal_date = data.get('제안일', datetime.now().strftime('%Y-%m-%d'))
+        target_date = data.get('구현목표일', '미정')
+
+        return f"""# {project_name} 태스크 제안서
+
+## 📋 기본 정보
+- 제안자: {proposer}
+- 제안일: {proposal_date}
+- 구현목표일: {target_date}
+
+## 🎯 태스크 목적
+{task_purpose}
+
+## 📝 태스크 범위
+{task_scope}
+
+## ✅ 필수 요구사항
+{required}
+
+## 💭 선택 요구사항
+{optional}
+
+## 📅 일정 계획
 {schedule_mermaid}
+"""
+    except Exception as e:
+        print(f"이슈 본문 생성 중 오류 발생: {str(e)}")
+        # 최소한의 정보로 이슈 생성
+        return f"""# {project_name} 태스크 제안서
+
+## ⚠️ 주의
+원본 태스크 제안서 처리 중 오류가 발생했습니다.
+CSV 파일의 형식을 확인해주세요.
+
+## 📋 원본 데이터
+```
+{json.dumps(data, indent=2, ensure_ascii=False)}
 ```
 """
-    return body
 
 def sanitize_project_name(name):
     """프로젝트 이름에서 특수문자를 제거하고 적절한 형식으로 변환합니다."""
@@ -255,6 +276,12 @@ def sanitize_project_name(name):
     
     print(f"변환된 이름: {sanitized}")
     return sanitized
+
+def format_list_items(items):
+    """리스트 항목을 마크다운 형식으로 변환합니다."""
+    if isinstance(items, str):
+        return items
+    return '\n'.join(f'- {item}' for item in items)
 
 def main():
     # GitHub 클라이언트 초기화

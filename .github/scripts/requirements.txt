@@ -1,6 +1,6 @@
 PyGithub==1.59.1
 python-dateutil==2.8.2
-requests==2.31.0
+requests==2.32.2
 slack-sdk==3.21.3
 pytz>=2024.1
 pandas>=2.0.0 
