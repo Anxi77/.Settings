@@ -451,7 +451,22 @@ class ProjectMixin:
         }
 
         result = self._execute_with_retry(mutation, variables)
-        return result.get('createProjectV2', {}).get('projectV2') if result else None
+        
+        if not result:
+            self.logger.error(f"No result returned from user project creation mutation for {owner}")
+            return None
+            
+        if 'errors' in result:
+            self.logger.error(f"GraphQL errors in user project creation: {result['errors']}")
+            return None
+            
+        create_result = result.get('createProjectV2', {})
+        project = create_result.get('projectV2')
+        if not project:
+            self.logger.error(f"No project data in createProjectV2 result: {create_result}")
+            return None
+            
+        return project
 
     def create_organization_project(self, owner: str, title: str,
                                   description: str = '') -> Optional[Dict[str, Any]]:
@@ -566,7 +581,8 @@ class ProjectMixin:
                 self.logger.info(f"Created user project '{project_name}' (#{new_project['number']})")
                 return new_project
         except Exception as e:
-            self.logger.debug(f"User project creation failed: {e}")
+            self.logger.error(f"User project creation failed for {owner}: {e}")
+            self.logger.error(f"Error details: {type(e).__name__}")
 
         # If user creation failed, try organization
         try:
@@ -575,9 +591,11 @@ class ProjectMixin:
                 self.logger.info(f"Created organization project '{project_name}' (#{new_project['number']})")
                 return new_project
         except Exception as e:
-            self.logger.debug(f"Organization project creation failed: {e}")
+            self.logger.error(f"Organization project creation failed for {owner}: {e}")
+            self.logger.error(f"Error details: {type(e).__name__}")
 
         self.logger.error(f"Failed to create project '{project_name}' for {owner}")
+        self.logger.error("Possible issues: 1) Missing 'project' scope in GitHub token, 2) User/Org doesn't have Projects enabled")
         return None
 
     def create_project_field(self, project_id: str, field_name: str, field_type: str = 'SINGLE_SELECT',
