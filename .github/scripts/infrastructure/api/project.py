@@ -594,8 +594,28 @@ class ProjectMixin:
             self.logger.error(f"Organization project creation failed for {owner}: {e}")
             self.logger.error(f"Error details: {type(e).__name__}")
 
+        # Provide detailed error guidance based on token type
+        token_type = getattr(self, 'token_type', 'GitHub Token')
+        
         self.logger.error(f"Failed to create project '{project_name}' for {owner}")
-        self.logger.error("Possible issues: 1) Missing 'project' scope in GitHub token, 2) User/Org doesn't have Projects enabled")
+        
+        if hasattr(self, 'is_pat') and not self.is_pat:
+            # This is a GitHub Actions token
+            self.logger.error("⚠️  GITHUB ACTIONS TOKEN LIMITATION DETECTED")
+            self.logger.error("GitHub Actions tokens have limited permissions for Projects v2 operations")
+            self.logger.error("SOLUTION: Create a Personal Access Token (PAT) with 'project' scope:")
+            self.logger.error("1. Go to https://github.com/settings/tokens/new")
+            self.logger.error("2. Check 'project' scope (required for Projects v2)")  
+            self.logger.error("3. Add PAT as 'PAT' secret in repository settings")
+            self.logger.error("4. The workflow will automatically use PAT instead of GITHUB_TOKEN")
+        else:
+            # This is a PAT but still failing
+            self.logger.error(f"Using {token_type} but project creation still failed")
+            self.logger.error("Possible issues:")
+            self.logger.error("1. Missing 'project' scope in Personal Access Token")
+            self.logger.error("2. User/Organization doesn't have Projects v2 enabled") 
+            self.logger.error("3. Token doesn't have permission to create projects for this owner")
+            
         return None
 
     def create_project_field(self, project_id: str, field_name: str, field_type: str = 'SINGLE_SELECT',

@@ -82,7 +82,7 @@ jobs:
 
       - name: Run Workflow Tracking
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_SHA: ${{ github.sha }}
           GITHUB_REF: ${{ github.ref }}
@@ -131,7 +131,7 @@ jobs:
 
       - name: Run Task Management
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_EVENT_NAME: ${{ github.event_name }}
@@ -168,7 +168,7 @@ jobs:
 
       - name: Generate Project Report
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           # Note: PROJECT_NUMBER, TIMEZONE, AUTOMATION_ENV are available from global env
         run: |
@@ -212,7 +212,7 @@ jobs:
 
       - name: Test GitHub API Connection
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           cd .github/scripts
@@ -266,7 +266,7 @@ jobs:
 
       - name: Sync DSR Checkboxes
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_EVENT_NAME: ${{ github.event_name }}

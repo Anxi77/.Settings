@@ -12,7 +12,7 @@ class BaseAPIClient:
         """Initialize base API client.
 
         Args:
-            token: Personal access token
+            token: Personal access token or GitHub token
             max_retries: Maximum retry attempts for rate limiting
             base_delay: Base delay for exponential backoff
         """
@@ -20,6 +20,12 @@ class BaseAPIClient:
         self.max_retries = max_retries
         self.base_delay = base_delay
         self.logger = logging.getLogger(__name__)
+
+        # Check token type for better error messaging
+        self.is_pat = token.startswith('ghp_') or token.startswith('github_pat_')
+        self.token_type = 'Personal Access Token' if self.is_pat else 'GitHub Actions Token'
+        
+        self.logger.info(f"Initializing API client with {self.token_type}")
 
         # Initialize GraphQL transport
         transport = RequestsHTTPTransport(
