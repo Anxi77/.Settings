@@ -12,17 +12,16 @@ This repository contains various presets for development environment configurati
 
 ### 🤖 GitHub Actions
 
-#### [Daily Development Logging](https://github.com/Anxi77/.Settings/tree/main/Actions/DailyDevelopmentLogging)
+#### [GitHub Automation System](https://github.com/Anxi77/.Settings/tree/main/Actions/GitHubAutomation)
 
-- 📅 Automatic daily dev log generation
-- 🌿 Branch-wise commit management
-- ✅ TODO item tracking
-- 🔄 Previous TODO migration
-- 📑 Categorized TODO management with @category syntax
-- 📊 Automatic category statistics (e.g., General (5/10))
-- 🎯 Automatic issue creation with (issue) prefix
-- 🔠 Case-insensitive category handling
-- 📋 Automatic General category for uncategorized items
+- 🔄 Complete GraphQL API-based automation system
+- 📅 Automatic DSR (Daily Status Report) generation and management
+- 📊 Real-time GitHub Project V2 board synchronization
+- 🏷️ Automatic issue label management and updates
+- 📝 [type] format commit message parsing and validation
+- ⚡ High-performance operation optimization through batch processing
+- 📈 Automatic project statistics and progress generation
+- 🔍 Comprehensive system validation and monitoring
 
 #### [Task Management](https://github.com/Anxi77/.Settings/tree/main/Actions/TaskManagement)
 
@@ -84,7 +83,7 @@ General VS Code settings including:
 - 🔄 Git integration settings
 - 🧩 Extension configurations
 
-### 📋 [Readme Templates](https://github.com/Anxi77/.Settings/tree/main/Readme)
+### 📋 [Readme Templates](https://github.com/Anxi77/.Settings/tree/main/Documents)
 
 Project documentation templates:
 
@@ -114,7 +113,7 @@ Pull requests are welcome if you'd like to suggest new configurations or improve
 [Unity](https://github.com/Anxi77/.Settings/tree/main/Unity) •
 [VSCode](https://github.com/Anxi77/.Settings/tree/main/VSCode) •
 [ReadmeTemplates](https://github.com/Anxi77/.Settings/tree/main/Documents) •
-[DailyDevelopmentLogging](https://github.com/Anxi77/.Settings/tree/main/Actions/DailyDevelopmentLogging) •
+[GitHubAutomation](https://github.com/Anxi77/.Settings/tree/main/Actions/GitHubAutomation) •
 [TaskManagement](https://github.com/Anxi77/.Settings/tree/main/Actions/TaskManagement)
 
 </div>

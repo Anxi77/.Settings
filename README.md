@@ -12,24 +12,23 @@
 
 ### 🤖 GitHub Actions
 
+#### [GitHub 자동화 시스템](https://github.com/Anxi77/.Settings/tree/main/Actions/GitHubAutomation)
+
+- 🔄 완전한 GraphQL API 기반 자동화 시스템
+- 📅 자동 DSR (일일 상태 보고서) 생성 및 관리
+- 📊 GitHub Project V2 보드 실시간 동기화
+- 🏷️ 이슈 라벨 자동 관리 및 업데이트
+- 📝 [type] 형식 커밋 메시지 파싱 및 검증
+- ⚡ 배치 처리를 통한 고성능 작업 최적화
+- 📈 프로젝트 통계 및 진행률 자동 생성
+- 🔍 포괄적인 시스템 검증 및 모니터링
+
 #### [백준 문제 로깅](https://github.com/Anxi77/.Settings/tree/main/Actions/BaekjoonLogging)
 
 - 📊 solved.ac API 연동
 - 🏷 알고리즘 유형별 분류
 - 📈 난이도 통계 관리
 - 🔄 자동 README 업데이트
-
-#### [일일 개발 로깅](https://github.com/Anxi77/.Settings/tree/main/Actions/DailyDevelopmentLogging)
-
-- 📅 일일 개발 로그 자동 생성
-- 🌿 브랜치별 커밋 관리
-- ✅ TODO 항목 추적
-- 🔄 이전 TODO 자동 이전
-- 📑 @카테고리 문법을 사용한 TODO 항목 분류
-- 📊 카테고리별 완료/전체 통계 자동 생성 (예: General (5/10))
-- 🎯 (issue) 접두사를 사용한 자동 이슈 생성
-- 🔠 대소문자 구분 없는 카테고리 처리
-- 📋 미분류 항목을 위한 General 카테고리 자동 생성
 
 #### [태스크 관리](https://github.com/Anxi77/.Settings/tree/main/Actions/TaskManagement)
 
@@ -91,7 +90,7 @@ Unity 개발 환경 구성:
 - 🔄 Git 통합 설정
 - 🧩 확장 프로그램 구성
 
-### 📋 [리드미 템플릿](https://github.com/Anxi77/.Settings/tree/main/Readme)
+### 📋 [리드미 템플릿](https://github.com/Anxi77/.Settings/tree/main/Documents)
 
 프로젝트 문서화 템플릿:
 
@@ -120,8 +119,8 @@ Unity 개발 환경 구성:
 [Unity](https://github.com/Anxi77/.Settings/tree/main/Unity) •
 [VSCode](https://github.com/Anxi77/.Settings/tree/main/VSCode) •
 [ReadmeTemplates](https://github.com/Anxi77/.Settings/tree/main/Documents) •
+[GitHubAutomation](https://github.com/Anxi77/.Settings/tree/main/Actions/GitHubAutomation) •
 [BaekjoonLogging](https://github.com/Anxi77/.Settings/tree/main/Actions/BaekjoonLogging) •
-[DailyDevelopmentLogging](https://github.com/Anxi77/.Settings/tree/main/Actions/DailyDevelopmentLogging) •
 [TaskManagement](https://github.com/Anxi77/.Settings/tree/main/Actions/TaskManagement)
 
 </div>

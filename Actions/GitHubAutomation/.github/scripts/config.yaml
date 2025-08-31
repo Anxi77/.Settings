@@ -1,0 +1,179 @@
+# GitHub Automation Configuration
+# Centralized configuration for all automation components
+
+# Global Settings
+global:
+  timezone: "Asia/Seoul"
+  project_number: 2
+  max_retries: 3
+  log_level: "INFO"
+  
+# Daily Status Report Configuration
+daily_reporter:
+  enabled: true
+  issue_prefix: "📅"
+  dsr_label: "DSR"
+  branch_label_prefix: "branch:"
+  excluded_commit_types:
+    - "chore"
+    - "docs"
+    - "style"
+  keep_dsr_days: 7
+  
+# Project Synchronization Configuration
+project_sync:
+  enabled: true
+  status_field_name: "Status"
+  priority_field_name: "Priority"
+  category_field_name: "Category"
+  
+  # Label mappings for task status
+  status_labels:
+    "todo": "TODO"
+    "in-progress": "IN_PROGRESS"
+    "in-review": "IN_REVIEW"
+    "done": "DONE"
+    "blocked": "BLOCKED"
+  
+  # Label mappings for task priority
+  priority_labels:
+    "priority:low": "LOW"
+    "priority:medium": "MEDIUM"
+    "priority:high": "HIGH"
+    "priority:critical": "CRITICAL"
+  
+  # Issues to exclude from project tracking
+  excluded_labels:
+    - "DSR"
+    - "documentation"
+    - "duplicate"
+    - "invalid"
+  
+  excluded_title_prefixes:
+    - ".github/workflows/"
+    - "[automated]"
+  
+  category_label_prefix: "category:"
+
+# GitHub API Configuration
+github:
+  max_retries: 3
+  base_delay: 1.0
+  rate_limit_buffer: 100  # Keep this many requests in reserve
+  
+# Commit Parser Configuration
+commit_parser:
+  enforce_format: true
+  allowed_types:
+    - "feat"
+    - "fix"
+    - "docs"
+    - "style"
+    - "refactor"
+    - "test"
+    - "chore"
+    - "design"
+    - "comment"
+    - "rename"
+    - "remove"
+    - "!BREAKING CHANGE"
+    - "!HOTFIX"
+
+# Note: Task proposal functionality moved to Actions/TaskProposal/ module
+# This automation system focuses on core commit tracking and project sync only
+
+# Workflow Trigger Configuration
+workflows:
+  # Workflow tracking triggers
+  tracking:
+    enabled: true
+    excluded_patterns:
+      - "^(chore|docs|style):"
+      - "\\[automated\\]"
+      - "\\[skip ci\\]"
+      - "\\[no ci\\]"
+    
+    # Branch filters
+    included_branches:
+      - "main"
+      - "master"
+      - "develop"
+      - "feature/**"
+      - "hotfix/**"
+    
+    excluded_branches:
+      - "dependabot/**"
+      - "renovate/**"
+  
+  # Task management triggers  
+  task_management:
+    enabled: true
+    issue_events:
+      - "edited"
+      - "labeled"
+      - "unlabeled"
+      - "assigned"
+      - "unassigned"
+    
+    project_events:
+      - "created"
+      - "moved"
+      - "converted"
+      - "deleted"
+    
+    # Automation actor exclusions
+    excluded_actors:
+      - "github-actions[bot]"
+      - "dependabot[bot]"
+      - "renovate[bot]"
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+  date_format: "%Y-%m-%d %H:%M:%S"
+  
+  # Component-specific log levels
+  loggers:
+    "github": "WARNING"
+    "urllib3": "WARNING"
+    "requests": "WARNING"
+
+# Error Handling Configuration
+error_handling:
+  max_errors_per_run: 10
+  retry_failed_operations: true
+  notification_on_critical_error: false
+  
+# Performance Configuration
+performance:
+  batch_size: 50
+  concurrent_requests: 5
+  cache_duration: 300  # seconds
+  
+# Security Configuration
+security:
+  validate_commit_signatures: false
+  require_signed_commits: false
+  sensitive_data_patterns:
+    - "password"
+    - "secret"
+    - "api_key"
+    - "token"
+    - "private_key"
+
+# Environment-specific overrides
+environments:
+  development:
+    log_level: "DEBUG"
+    max_retries: 1
+    auto_create_issues: false
+    
+  staging:
+    log_level: "INFO"
+    max_retries: 2
+    
+  production:
+    log_level: "WARNING"
+    max_retries: 3
+    notification_on_critical_error: true

@@ -1,33 +1,57 @@
-# Task Management Action Guide
+# Task Management & Proposal System Guide
 
 [English](README.en.md) | [한국어](README.md)
 
 ## 📌 Overview
 
-This GitHub Action is an automated system for systematically creating, managing, and tracking project tasks. It generates issues based on CSV-format task proposals and automatically updates project reports through an approval process.
+This integrated system provides comprehensive task management and proposal processing for GitHub projects. It combines automated task tracking with proposal-to-task conversion workflow, enabling systematic project management through GitHub Issues and Project boards.
 
 ## 🔧 Key Features
 
-1. **Task Proposal and Creation**
+### 1. **Proposal Processing System**
+   - Convert proposal issues into actionable tasks
+   - Automatic task creation from approved proposals
+   - Proposal-task linking and relationship tracking
+   - Assignee transfer and proper labeling
 
-   - Automatic processing of CSV-format task proposals
+### 2. **Task Management**
+   - CSV-format task proposal processing
    - Standardized issue template generation
    - Schedule visualization through Gantt charts
+   - Label-based approval workflow
 
-2. **Approval Process Management**
+### 3. **Project Tracking**
+   - Real-time progress monitoring
+   - Category-based task organization
+   - Automatic statistics and reporting
+   - GitHub Project board integration
 
-   - Label-based approval system
-   - Automatic category classification
-   - Automated handling based on approval status
+## 💫 Proposal Issue Template
 
-3. **Project Reports**
-   - Real-time progress tracking
-   - Category-based task management
-   - Automatic statistics generation and visualization
+Proposal issues should follow this template:
 
-## 💫 Task Proposal Format
+```markdown
+## 📋 Proposal Information
+- Proposer: @username
+- Target Date: YYYY-MM-DD
+- Category: feature|bug|enhancement
 
-Task proposals should be written in CSV format following this structure:
+## 🎯 Objective
+Brief description of what needs to be done
+
+## 📝 Requirements
+- [ ] Requirement 1
+- [ ] Requirement 2
+- [ ] Requirement 3
+
+## 📊 Acceptance Criteria
+- [ ] Criteria 1
+- [ ] Criteria 2
+```
+
+## 📋 CSV Task Proposal Format
+
+Alternatively, task proposals can be written in CSV format:
 
 ```csv
 [Task Name],UI/UX Enhancement Project
@@ -73,14 +97,21 @@ The system provides the following default categories:
 - 📚 Documentation: Documentation writing and management tasks
 - 🛠️ Maintenance: Bug fixes and performance improvement tasks
 
-### Approval Process
+### Proposal Workflow
 
-Tasks are managed through the following approval labels:
+1. **Create Proposal**: Create issue with "proposal" label
+2. **Review**: Team reviews the proposal
+3. **Approve**: Add "approved" label when ready
+4. **Convert**: Automation converts to task issue
+5. **Track**: Task follows normal issue lifecycle
 
-- ⌛ Pending Review: Initial review pending status
-- ✅ Approved: Task approved and ready to start
-- ❌ Rejected: Task rejected and needs revision
-- ⏸️ On Hold: Needs further discussion
+### Approval Labels
+
+- ⌛ proposal: Mark issues as proposals
+- ✅ approved: Mark proposals ready for conversion
+- ❌ rejected: Task rejected and needs revision
+- 🏷️ task: Applied to converted task issues
+- ⏸️ on-hold: Needs further discussion
 
 ## 📋 Auto-generated Report Format
 
@@ -144,6 +175,18 @@ permissions:
   contents: read
 ````
 
+## 🔗 Related Systems
+
+### GitHub Automation System Integration
+This TaskManagement system can be used together with the [GitHub Automation System](../GitHubAutomation/):
+
+- **TaskManagement**: CSV-based task proposal processing and project planning
+- **GitHubAutomation**: Commit-based DSR generation and real-time project board synchronization
+
+Using both systems together enables complete project lifecycle management:
+1. Plan and approve tasks with TaskManagement
+2. Track execution progress and automation with GitHubAutomation
+
 ## ⚠️ Important Notes
 
 1. CSV files must follow the exact format.
@@ -151,3 +194,17 @@ permissions:
 3. Only use specified labels for the approval process.
 4. Do not manually modify reports as they are automatically updated.
 5. All time durations must be specified in 'd' (days) units.
+
+---
+
+<div align="center">
+
+### 🔗 Related Links
+
+[Main Settings Repository](../../) • 
+[GitHub Automation System](../GitHubAutomation/) •
+[Baekjoon Logging](../BaekjoonLogging/)
+
+**📋 Achieve successful project completion with systematic task management!**
+
+</div>
