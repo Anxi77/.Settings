@@ -368,6 +368,91 @@ class ProjectMixin:
         result = self._execute_with_retry(query, variables)
         return result.get('organization', {}).get('projectsV2', {}).get('nodes', []) if result else []
 
+    def list_user_projects(self, owner: str, first: int = 20) -> List[Dict[str, Any]]:
+        """List user projects.
+
+        Args:
+            owner: User login
+            first: Maximum number of projects to fetch
+
+        Returns:
+            List of project dictionaries with id, number, title
+        """
+        query = gql("""
+            query ListUserProjects($owner: String!, $first: Int!) {
+              user(login: $owner) {
+                projectsV2(first: $first, orderBy: {field: CREATED_AT, direction: DESC}) {
+                  nodes {
+                    id
+                    number
+                    title
+                    url
+                    createdAt
+                    updatedAt
+                  }
+                }
+              }
+            }
+        """)
+
+        variables = {"owner": owner, "first": first}
+        result = self._execute_with_retry(query, variables)
+        return result.get('user', {}).get('projectsV2', {}).get('nodes', []) if result else []
+
+    def create_user_project(self, owner: str, title: str,
+                          description: str = '') -> Optional[Dict[str, Any]]:
+        """Create new user project.
+
+        Args:
+            owner: User login
+            title: Project title
+            description: Project description
+
+        Returns:
+            Created project data dictionary
+        """
+        # First get user ID
+        user_query = gql("""
+            query GetUser($login: String!) {
+              user(login: $login) {
+                id
+              }
+            }
+        """)
+
+        user_result = self._execute_with_retry(user_query, {"login": owner})
+        if not user_result:
+            return None
+
+        user_id = user_result.get('user', {}).get('id')
+        if not user_id:
+            return None
+
+        # Create project
+        mutation = gql("""
+            mutation CreateProjectV2($ownerId: ID!, $title: String!) {
+              createProjectV2(input: {
+                ownerId: $ownerId
+                title: $title
+              }) {
+                projectV2 {
+                  id
+                  number
+                  title
+                  url
+                }
+              }
+            }
+        """)
+
+        variables = {
+            "ownerId": user_id,
+            "title": title
+        }
+
+        result = self._execute_with_retry(mutation, variables)
+        return result.get('createProjectV2', {}).get('projectV2') if result else None
+
     def create_organization_project(self, owner: str, title: str,
                                   description: str = '') -> Optional[Dict[str, Any]]:
         """Create new organization project.
@@ -424,26 +509,42 @@ class ProjectMixin:
         return result.get('createProjectV2', {}).get('projectV2') if result else None
 
     def get_project_by_name(self, owner: str, project_name: str) -> Optional[Dict[str, Any]]:
-        """Get project by exact name match.
+        """Get project by exact name match, supporting both users and organizations.
 
         Args:
-            owner: Organization login
+            owner: User or organization login
             project_name: Exact project name to find
 
         Returns:
             Project data dictionary or None if not found
         """
-        projects = self.list_organization_projects(owner)
-        for project in projects:
-            if project.get('title') == project_name:
-                return project
+        # Try user projects first
+        try:
+            user_projects = self.list_user_projects(owner)
+            for project in user_projects:
+                if project.get('title') == project_name:
+                    return project
+        except Exception:
+            # If user query fails, try organization
+            pass
+
+        # Try organization projects
+        try:
+            org_projects = self.list_organization_projects(owner)
+            for project in org_projects:
+                if project.get('title') == project_name:
+                    return project
+        except Exception:
+            # If both fail, return None
+            pass
+
         return None
 
     def get_or_create_project_by_name(self, owner: str, project_name: str) -> Optional[Dict[str, Any]]:
-        """Get existing project by name or create if doesn't exist.
+        """Get existing project by name or create if doesn't exist, supporting both users and organizations.
 
         Args:
-            owner: Organization login
+            owner: User or organization login
             project_name: Project name (will be used as title)
 
         Returns:
@@ -456,15 +557,28 @@ class ProjectMixin:
             return existing_project
 
         # Create new project if not found
-        self.logger.info(f"Creating new project '{project_name}'")
-        new_project = self.create_organization_project(owner, project_name)
+        self.logger.info(f"Creating new project '{project_name}' for {owner}")
+        
+        # Try creating as user project first
+        try:
+            new_project = self.create_user_project(owner, project_name)
+            if new_project:
+                self.logger.info(f"Created user project '{project_name}' (#{new_project['number']})")
+                return new_project
+        except Exception as e:
+            self.logger.debug(f"User project creation failed: {e}")
 
-        if new_project:
-            self.logger.info(f"Created project '{project_name}' (#{new_project['number']})")
-            return new_project
-        else:
-            self.logger.error(f"Failed to create project '{project_name}'")
-            return None
+        # If user creation failed, try organization
+        try:
+            new_project = self.create_organization_project(owner, project_name)
+            if new_project:
+                self.logger.info(f"Created organization project '{project_name}' (#{new_project['number']})")
+                return new_project
+        except Exception as e:
+            self.logger.debug(f"Organization project creation failed: {e}")
+
+        self.logger.error(f"Failed to create project '{project_name}' for {owner}")
+        return None
 
     def create_project_field(self, project_id: str, field_name: str, field_type: str = 'SINGLE_SELECT',
                            options: List[str] = None) -> Optional[str]:
