@@ -54,25 +54,24 @@ class BoardSync:
                 self.logger.info("Project board sync is disabled in configuration")
                 return False
 
-            # Get project number from config
-            self.project_number = project_config.get('project_number')
-            if not self.project_number:
-                self.logger.error("No project number configured")
-                return False
-
-            # Get project information
-            project_info = self.api.get_project_by_number(self.repo_owner, self.project_number)
+            # Try to get or create project by repository name
+            project_name = self.repo_name
+            self.logger.info(f"Looking for project '{project_name}' in {self.repo_owner}")
+            
+            project_info = self.api.get_or_create_project_by_name(self.repo_owner, project_name)
             if not project_info:
-                self.logger.error(f"Project #{self.project_number} not found")
+                self.logger.error(f"Failed to get or create project '{project_name}'")
                 return False
 
             self.project_id = project_info.get('id')
-            if not self.project_id:
-                self.logger.error("Could not get project ID")
+            self.project_number = project_info.get('number')
+            
+            if not self.project_id or not self.project_number:
+                self.logger.error("Could not get project ID or number")
                 return False
 
             self.project_enabled = True
-            self.logger.info(f"Initialized project board connection (#{self.project_number})")
+            self.logger.info(f"Initialized project board connection: '{project_name}' (#{self.project_number})")
             return True
 
         except Exception as e:
