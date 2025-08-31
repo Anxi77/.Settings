@@ -1,0 +1,440 @@
+"""Streamlined board synchronization - core functionality only."""
+import logging
+import time
+from typing import Dict, List, Optional, Any
+
+from infrastructure.api_client import APIClient
+from .models import TaskStatus, TaskPriority, TaskItem
+from .task_factory import TaskItemFactory
+from .field_manager import ProjectFieldManager
+from .todo_sync import TodoSync
+
+class BoardSync:
+    """Streamlined project board synchronization."""
+
+    def __init__(self, api_client: APIClient, config: Dict[str, Any], repo_owner: str, repo_name: str):
+        """Initialize board synchronizer.
+
+        Args:
+            api_client: API client
+            config: Configuration dictionary
+            repo_owner: Repository owner/organization
+            repo_name: Repository name
+        """
+        self.api = api_client
+        self.config = config
+        self.repo_owner = repo_owner
+        self.repo_name = repo_name
+        self.logger = logging.getLogger(__name__)
+
+        # Initialize project connection
+        self.project_id: Optional[str] = None
+        self.project_number: Optional[int] = None
+        self.project_enabled = False
+
+        # Initialize helper classes
+        self.task_factory = TaskItemFactory(api_client, config)
+        self.field_manager: Optional[ProjectFieldManager] = None
+        self.todo_sync: Optional[TodoSync] = None
+
+        # Try to initialize project
+        if self.initialize_project():
+            self.field_manager = ProjectFieldManager(api_client, self.project_id, repo_owner)
+            self.todo_sync = TodoSync(api_client, config, self.project_id, repo_owner)
+
+    def initialize_project(self) -> bool:
+        """Initialize project connection.
+
+        Returns:
+            True if project initialization was successful
+        """
+        try:
+            project_config = self.config.get('project_sync', {})
+            if not project_config.get('enabled', False):
+                self.logger.info("Project board sync is disabled in configuration")
+                return False
+
+            # Get project number from config
+            self.project_number = project_config.get('project_number')
+            if not self.project_number:
+                self.logger.error("No project number configured")
+                return False
+
+            # Get project information
+            project_info = self.api.get_project_by_number(self.repo_owner, self.project_number)
+            if not project_info:
+                self.logger.error(f"Project #{self.project_number} not found")
+                return False
+
+            self.project_id = project_info.get('id')
+            if not self.project_id:
+                self.logger.error("Could not get project ID")
+                return False
+
+            self.project_enabled = True
+            self.logger.info(f"Initialized project board connection (#{self.project_number})")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Failed to initialize project: {e}")
+            return False
+
+    def sync_board(self, repo_owner: str = None, repo_name: str = None) -> Dict[str, Any]:
+        """Synchronize project board with repository issues.
+
+        Args:
+            repo_owner: Repository owner (optional, uses instance default)
+            repo_name: Repository name (optional, uses instance default)
+
+        Returns:
+            Sync results dictionary
+        """
+        if not self.project_enabled:
+            return {'success': False, 'error': 'Project board not initialized'}
+
+        # Use provided parameters or fall back to instance defaults
+        repo_owner = repo_owner or self.repo_owner
+        repo_name = repo_name or self.repo_name
+
+        try:
+            self.logger.info(f"Starting board sync for {repo_owner}/{repo_name}")
+
+            # Get repository issues
+            issues = self.api.get_issues(repo_owner, repo_name, state='OPEN')
+            if not issues:
+                self.logger.info("No issues found in repository")
+                return {'success': True, 'synced_issues': 0, 'created_items': 0}
+
+            # Filter task issues (exclude DSR and other non-task issues)
+            task_issues = self.task_factory.filter_task_issues(issues)
+
+            # Get existing project items
+            project_items = self.api.get_project_items(self.project_id)
+
+            # Create task items from issues
+            task_items = self.task_factory.create_task_items(task_issues, project_items)
+
+            # Sync task items to project board
+            results = self._sync_task_items(task_items)
+
+            # Update project metrics
+            self._update_project_metrics(task_items)
+
+            self.logger.info(f"Board sync completed: {results}")
+            return {'success': True, **results}
+
+        except Exception as e:
+            self.logger.error(f"Error during board sync: {e}")
+            return {'success': False, 'error': str(e)}
+
+    def sync_todo_issues(self) -> bool:
+        """Sync TODO issues to project board.
+
+        Returns:
+            True if sync was successful
+        """
+        if not self.todo_sync:
+            self.logger.error("TODO sync not available - project not initialized")
+            return False
+
+        return self.todo_sync.sync_todo_issues(self.repo_owner, self.repo_name)
+
+    def update_task_status(self, repo_owner: str, repo_name: str, issue_number: int,
+                          new_status: TaskStatus) -> bool:
+        """Update task status for an issue.
+
+        Args:
+            repo_owner: Repository owner
+            repo_name: Repository name
+            issue_number: Issue number to update
+            new_status: New task status
+
+        Returns:
+            True if update was successful
+        """
+        if not self.project_enabled:
+            self.logger.error("Project board not initialized")
+            return False
+
+        try:
+            # Get issue information
+            issue = self.api.get_issue(repo_owner, repo_name, issue_number)
+            if not issue:
+                self.logger.error(f"Issue #{issue_number} not found")
+                return False
+
+            # Update issue labels to reflect new status
+            self._update_issue_labels(repo_owner, repo_name, issue, new_status)
+
+            # Update project item status if it exists in the project
+            self._update_project_item_status(issue, new_status)
+
+            self.logger.info(f"Updated task status for issue #{issue_number} to {new_status.value}")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Failed to update task status: {e}")
+            return False
+
+    def get_project_statistics(self, repo_owner: str, repo_name: str) -> Dict[str, Any]:
+        """Get project statistics.
+
+        Args:
+            repo_owner: Repository owner
+            repo_name: Repository name
+
+        Returns:
+            Project statistics dictionary
+        """
+        if not self.project_enabled:
+            return {'error': 'Project board not initialized'}
+
+        try:
+            # Get project items
+            project_items = self.api.get_project_items(self.project_id)
+
+            # Get repository issues
+            issues = self.api.get_issues(repo_owner, repo_name, state='ALL')
+            task_issues = self.task_factory.filter_task_issues(issues)
+
+            # Create task items for analysis
+            task_items = self.task_factory.create_task_items(task_issues, project_items)
+
+            # Calculate statistics
+            stats = {
+                'total_issues': len(task_issues),
+                'project_items': len(project_items),
+                'status_breakdown': {},
+                'priority_breakdown': {},
+                'category_breakdown': {}
+            }
+
+            # Analyze task items
+            for task_item in task_items:
+                # Status breakdown
+                status = task_item.status.value
+                stats['status_breakdown'][status] = stats['status_breakdown'].get(status, 0) + 1
+
+                # Priority breakdown
+                priority = task_item.priority.value
+                stats['priority_breakdown'][priority] = stats['priority_breakdown'].get(priority, 0) + 1
+
+                # Category breakdown
+                category = task_item.category or 'Uncategorized'
+                stats['category_breakdown'][category] = stats['category_breakdown'].get(category, 0) + 1
+
+            return stats
+
+        except Exception as e:
+            self.logger.error(f"Failed to get project statistics: {e}")
+            return {'error': str(e)}
+
+    def _sync_task_items(self, task_items: List[TaskItem]) -> Dict[str, Any]:
+        """Sync task items to project board.
+
+        Args:
+            task_items: List of task items to sync
+
+        Returns:
+            Sync results
+        """
+        synced_count = 0
+        created_count = 0
+        failed_count = 0
+
+        for task_item in task_items:
+            try:
+                if task_item.board_item:
+                    # Update existing project item
+                    if self._update_project_item(task_item):
+                        synced_count += 1
+                    else:
+                        failed_count += 1
+                else:
+                    # Create new project item
+                    if self._create_project_item(task_item):
+                        created_count += 1
+                    else:
+                        failed_count += 1
+
+                # Small delay to avoid rate limiting
+                time.sleep(0.2)
+
+            except Exception as e:
+                self.logger.error(f"Failed to sync task item: {e}")
+                failed_count += 1
+
+        return {
+            'synced_issues': synced_count,
+            'created_items': created_count,
+            'failed_items': failed_count
+        }
+
+    def _update_project_item(self, task_item: TaskItem) -> bool:
+        """Update existing project item.
+
+        Args:
+            task_item: Task item to update
+
+        Returns:
+            True if update was successful
+        """
+        try:
+            item_id = task_item.board_item.get('id')
+            if not item_id:
+                return False
+
+            # Update status field
+            success = self.api.update_project_item_field(
+                project_id=self.project_id,
+                item_id=item_id,
+                field_name="Status",
+                field_value=task_item.status.value
+            )
+
+            return success
+
+        except Exception as e:
+            self.logger.error(f"Failed to update project item: {e}")
+            return False
+
+    def _create_project_item(self, task_item: TaskItem) -> bool:
+        """Create new project item.
+
+        Args:
+            task_item: Task item to create
+
+        Returns:
+            True if creation was successful
+        """
+        try:
+            # Create the project item
+            created_item = self.api.create_project_item(
+                project_id=self.project_id,
+                content_id=task_item.issue['id']
+            )
+
+            if not created_item:
+                return False
+
+            # Set initial field values
+            item_id = created_item.get('id')
+            if item_id:
+                # Set status
+                self.api.update_project_item_field(
+                    project_id=self.project_id,
+                    item_id=item_id,
+                    field_name="Status",
+                    field_value=task_item.status.value
+                )
+
+                # Set category if available
+                if task_item.category and self.field_manager:
+                    self.field_manager.ensure_category_field_exists(task_item.category)
+                    self.api.update_project_item_field(
+                        project_id=self.project_id,
+                        item_id=item_id,
+                        field_name="Category",
+                        field_value=task_item.category
+                    )
+
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Failed to create project item: {e}")
+            return False
+
+    def _update_issue_labels(self, repo_owner: str, repo_name: str, issue: Dict[str, Any], new_status: TaskStatus):
+        """Update issue labels to reflect new status.
+
+        Args:
+            repo_owner: Repository owner
+            repo_name: Repository name
+            issue: Issue data
+            new_status: New task status
+        """
+        try:
+            # Get current labels
+            current_labels = issue.get('labels', [])
+            label_names = [label.get('name', '') for label in current_labels if label.get('name')]
+
+            # Remove existing status labels
+            status_labels = ['status:todo', 'status:in-progress', 'status:in-review', 'status:done']
+            new_labels = [label for label in label_names if label.lower() not in status_labels]
+
+            # Add new status label
+            new_status_label = f"status:{new_status.value.lower().replace(' ', '-')}"
+            new_labels.append(new_status_label)
+
+            # Update issue labels
+            self.api.update_issue_labels(repo_owner, repo_name, issue['number'], new_labels)
+
+        except Exception as e:
+            self.logger.error(f"Failed to update issue labels: {e}")
+
+    def _update_project_item_status(self, issue: Dict[str, Any], new_status: TaskStatus):
+        """Update project item status if it exists.
+
+        Args:
+            issue: Issue data
+            new_status: New task status
+        """
+        try:
+            # Find project item for this issue
+            project_items = self.api.get_project_items(self.project_id)
+
+            for item in project_items:
+                content = item.get('content', {})
+                if content.get('number') == issue.get('number'):
+                    # Update status field
+                    item_id = item.get('id')
+                    if item_id:
+                        self.api.update_project_item_field(
+                            project_id=self.project_id,
+                            item_id=item_id,
+                            field_name="Status",
+                            field_value=new_status.value
+                        )
+                    break
+
+        except Exception as e:
+            self.logger.error(f"Failed to update project item status: {e}")
+
+    def _update_project_metrics(self, task_items: List[TaskItem]):
+        """Update project metrics.
+
+        Args:
+            task_items: List of task items for metrics calculation
+        """
+        try:
+            # Calculate basic metrics
+            total_items = len(task_items)
+            completed_items = sum(1 for item in task_items if item.status == TaskStatus.DONE)
+
+            completion_rate = (completed_items / total_items * 100) if total_items > 0 else 0
+
+            self.logger.info(f"Project metrics: {total_items} total items, "
+                           f"{completed_items} completed ({completion_rate:.1f}%)")
+
+        except Exception as e:
+            self.logger.error(f"Failed to update project metrics: {e}")
+
+# Backward compatibility function
+def run_todo_sync(api_client: APIClient, config: Dict[str, Any], repo_owner: str, repo_name: str) -> bool:
+    """Run TODO project synchronization.
+
+    Args:
+        api_client: GitHub API client
+        config: Configuration dictionary
+        repo_owner: Repository owner
+        repo_name: Repository name
+
+    Returns:
+        True if sync was successful
+    """
+    try:
+        sync = BoardSync(api_client, config, repo_owner, repo_name)
+        return sync.sync_todo_issues()
+    except Exception as e:
+        logging.error(f"Error in run_todo_sync: {e}")
+        return False

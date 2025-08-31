@@ -1,8 +1,21 @@
-# GitHub 자동화 시스템
+# ⚠️ 레거시 GitHub 자동화 시스템
 
-[English](README.en.md) | [한국어](README.md)
+> **이 디렉토리는 구버전입니다. 최신 버전은 `/.github/scripts/`를 사용하세요.**
+
+## 🚀 현재 활성 버전
+
+**현재 버전**을 사용하세요:
+```
+/.github/scripts/
+```
+
+새로운 **도메인 기반 아키텍처**로 완전히 재구성되었습니다.
 
 ---
+
+## 📚 레거시 문서 (참고용)
+
+[English](README.en.md) | [한국어](README.md)
 
 ## 📌 개요
 

@@ -13,6 +13,10 @@ class CommitData:
     todos: List[Tuple[str, str]]  # (category, task)
     footer: List[str]
     breaking: bool = False
+    author: Optional[str] = None
+    timestamp: Optional[str] = None
+    time: Optional[str] = None  # HH:MM:SS format for display
+    hash: Optional[str] = None
 
 class CommitParser:
     """Parse commit messages following [type] convention."""

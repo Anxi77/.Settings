@@ -4,29 +4,29 @@ __version__ = "2.0.0"
 __author__ = "GitHub Automation"
 __description__ = "Streamlined GitHub automation for DSR generation and project management"
 
-# Core components
-from .core.commit_parser import CommitParser, CommitData
-from .core.api_client import APIClient  
-from .core.daily_reporter import DailyReporter, TodoItem, BranchSummary
-from .core.project_sync import BoardSync, TaskStatus, TaskPriority, TaskItem
-
-# Plugin system
-from .plugins import PluginManager, AutomationPlugin
+# Domain components
+from .infrastructure.api_client import APIClient
+from .domains.commits import CommitParser, CommitData
+from .domains.reporting import DailyReporter, TodoItem, BranchSummary
+from .domains.projects import BoardSync, TaskStatus, TaskPriority, TaskItem
+from .domains.issues import TodoIssueManager, TodoIssueInfo
 
 __all__ = [
-    # Core classes
+    # Infrastructure
+    'APIClient',
+    # Commits domain
     'CommitParser',
     'CommitData',
-    'APIClient',
+    # Reporting domain
     'DailyReporter', 
     'TodoItem',
     'BranchSummary',
+    # Projects domain
     'BoardSync',
     'TaskStatus',
     'TaskPriority', 
     'TaskItem',
-    
-    # Plugin system
-    'PluginManager',
-    'AutomationPlugin'
+    # Issues domain
+    'TodoIssueManager',
+    'TodoIssueInfo',
 ]
