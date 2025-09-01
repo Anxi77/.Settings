@@ -78,8 +78,8 @@ class ProjectFieldManager:
         try:
             field_info = self.api.create_project_field(
                 project_id=self.project_id,
-                name="Category",
-                data_type="SINGLE_SELECT",
+                field_name="Category",
+                field_type="SINGLE_SELECT",
                 options=[]  # Will be populated as categories are added
             )
 

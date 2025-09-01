@@ -7,12 +7,12 @@ on:
       - "**"
     paths-ignore:
       - "**.md"
-      - ".gitignore" 
+      - ".gitignore"
       - "LICENSE"
       - "docs/**"
       - "Docs/**"
 
-  # Task management - triggered by issue/project events  
+  # Task management - triggered by issue/project events
   issues:
     types: [edited, labeled, unlabeled, assigned, unassigned, closed, reopened]
 
@@ -23,16 +23,16 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'Automation mode to run'
+        description: "Automation mode to run"
         required: true
-        default: 'workflow'
+        default: "workflow"
         type: choice
         options:
-        - workflow
-        - task-management
-        - report
+          - workflow
+          - task-management
+          - report
       dry_run:
-        description: 'Dry run mode (no actual changes)'
+        description: "Dry run mode (no actual changes)"
         required: false
         default: false
         type: boolean
@@ -246,7 +246,7 @@ jobs:
       github.event_name == 'issues' &&
       (github.event.action == 'closed' || github.event.action == 'reopened') &&
       contains(github.event.issue.labels.*.name, 'todo-item')
-    
+
     # Note: Global env variables are automatically available in all jobs
 
     steps:
@@ -256,7 +256,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |

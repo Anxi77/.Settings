@@ -3,3 +3,5 @@
 /.serena/
 /CLAUDE.md
 **/__pycache__/
+/.env
+**/*.log
