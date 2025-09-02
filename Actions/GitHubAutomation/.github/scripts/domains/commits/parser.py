@@ -23,7 +23,7 @@ class CommitParser:
 
     COMMIT_TYPES = {
         'feat', 'fix', 'docs', 'style', 'refactor', 'test', 'chore',
-        'design', 'comment', 'rename', 'remove', '!BREAKING CHANGE', '!HOTFIX'
+        'design', 'comment', 'rename', 'remove', 'debug', '!BREAKING CHANGE', '!HOTFIX'
     }
 
     def __init__(self):
@@ -181,7 +181,7 @@ class CommitParser:
 
             for category, task in data.todos:
                 if category != current_category:
-                    lines.append(f"@{category}")
+                    lines.append(f"{category}")
                     current_category = category
                 lines.append(f"- {task}")
 

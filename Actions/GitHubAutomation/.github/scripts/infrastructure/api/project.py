@@ -368,6 +368,106 @@ class ProjectMixin:
         result = self._execute_with_retry(query, variables)
         return result.get('organization', {}).get('projectsV2', {}).get('nodes', []) if result else []
 
+    def list_user_projects(self, owner: str, first: int = 20) -> List[Dict[str, Any]]:
+        """List user projects.
+
+        Args:
+            owner: User login
+            first: Maximum number of projects to fetch
+
+        Returns:
+            List of project dictionaries with id, number, title
+        """
+        query = gql("""
+            query ListUserProjects($owner: String!, $first: Int!) {
+              user(login: $owner) {
+                projectsV2(first: $first, orderBy: {field: CREATED_AT, direction: DESC}) {
+                  nodes {
+                    id
+                    number
+                    title
+                    url
+                    createdAt
+                    updatedAt
+                  }
+                }
+              }
+            }
+        """)
+
+        variables = {"owner": owner, "first": first}
+        result = self._execute_with_retry(query, variables)
+        return result.get('user', {}).get('projectsV2', {}).get('nodes', []) if result else []
+
+    def create_user_project(self, owner: str, title: str,
+                          description: str = '') -> Optional[Dict[str, Any]]:
+        """Create new user project.
+
+        Args:
+            owner: User login
+            title: Project title
+            description: Project description
+
+        Returns:
+            Created project data dictionary
+        """
+        # First get user ID
+        user_query = gql("""
+            query GetUser($login: String!) {
+              user(login: $login) {
+                id
+              }
+            }
+        """)
+
+        user_result = self._execute_with_retry(user_query, {"login": owner})
+        if not user_result:
+            return None
+
+        user_id = user_result.get('user', {}).get('id')
+        if not user_id:
+            return None
+
+        # Create project
+        mutation = gql("""
+            mutation CreateProjectV2($ownerId: ID!, $title: String!) {
+              createProjectV2(input: {
+                ownerId: $ownerId
+                title: $title
+              }) {
+                projectV2 {
+                  id
+                  number
+                  title
+                  url
+                }
+              }
+            }
+        """)
+
+        variables = {
+            "ownerId": user_id,
+            "title": title
+        }
+
+        result = self._execute_with_retry(mutation, variables)
+        
+        if not result:
+            self.logger.error(f"No result returned from user project creation mutation for {owner}")
+            return None
+            
+        if 'errors' in result:
+            self.logger.error(f"GraphQL errors in user project creation: {result['errors']}")
+            return None
+            
+        create_result = result.get('createProjectV2', {})
+        project = create_result.get('projectV2')
+        if not project:
+            self.logger.error(f"No project data in createProjectV2 result: {create_result}")
+            return None
+            
+        return project
+
     def create_organization_project(self, owner: str, title: str,
                                   description: str = '') -> Optional[Dict[str, Any]]:
         """Create new organization project.
@@ -424,47 +524,88 @@ class ProjectMixin:
         return result.get('createProjectV2', {}).get('projectV2') if result else None
 
     def get_project_by_name(self, owner: str, project_name: str) -> Optional[Dict[str, Any]]:
-        """Get project by exact name match.
+        """Get project by exact name match, supporting both users and organizations.
 
         Args:
-            owner: Organization login
+            owner: User or organization login
             project_name: Exact project name to find
 
         Returns:
             Project data dictionary or None if not found
         """
-        projects = self.list_organization_projects(owner)
-        for project in projects:
-            if project.get('title') == project_name:
-                return project
+        # Try user projects first
+        try:
+            user_projects = self.list_user_projects(owner)
+            self.logger.info(f"Found {len(user_projects)} user projects for {owner}")
+            for project in user_projects:
+                project_title = project.get('title', '')
+                project_number = project.get('number', 'unknown')
+                self.logger.info(f"  Project #{project_number}: '{project_title}'")
+                if project_title == project_name:
+                    return project
+        except Exception as e:
+            self.logger.warning(f"Failed to list user projects: {e}")
+            # If user query fails, try organization
+            pass
+
+        # Try organization projects
+        try:
+            org_projects = self.list_organization_projects(owner)
+            for project in org_projects:
+                if project.get('title') == project_name:
+                    return project
+        except Exception:
+            # If both fail, return None
+            pass
+
         return None
 
     def get_or_create_project_by_name(self, owner: str, project_name: str) -> Optional[Dict[str, Any]]:
-        """Get existing project by name or create if doesn't exist.
+        """Find existing project by name only (no creation attempts).
 
         Args:
-            owner: Organization login
-            project_name: Project name (will be used as title)
+            owner: User or organization login
+            project_name: Project name to find
 
         Returns:
-            Project data dictionary with id, number, title
+            Project data dictionary or None if not found
         """
-        # Try to find existing project
+        # Only try to find existing project - no creation attempts
         existing_project = self.get_project_by_name(owner, project_name)
         if existing_project:
             self.logger.info(f"Found existing project '{project_name}' (#{existing_project['number']})")
             return existing_project
 
-        # Create new project if not found
-        self.logger.info(f"Creating new project '{project_name}'")
-        new_project = self.create_organization_project(owner, project_name)
+        # Project not found - provide guidance
+        self.logger.warning(f"Project '{project_name}' not found for {owner}")
+        self.logger.info(f"Please create project '{project_name}' manually in GitHub")
+        self.logger.info("The automation system will automatically discover it on next run")
+        
+        return None
 
-        if new_project:
-            self.logger.info(f"Created project '{project_name}' (#{new_project['number']})")
-            return new_project
+        # Provide detailed error guidance based on token type
+        token_type = getattr(self, 'token_type', 'GitHub Token')
+        
+        self.logger.error(f"Failed to create project '{project_name}' for {owner}")
+        
+        if hasattr(self, 'is_pat') and not self.is_pat:
+            # This is a GitHub Actions token
+            self.logger.error("⚠️  GITHUB ACTIONS TOKEN LIMITATION DETECTED")
+            self.logger.error("GitHub Actions tokens have limited permissions for Projects v2 operations")
+            self.logger.error("SOLUTION: Create a Personal Access Token (PAT) with 'project' scope:")
+            self.logger.error("1. Go to https://github.com/settings/tokens/new")
+            self.logger.error("2. Check 'project' scope (required for Projects v2)")  
+            self.logger.error("3. Add PAT as 'PAT' secret in repository settings")
+            self.logger.error("4. The workflow will automatically use PAT instead of GITHUB_TOKEN")
         else:
-            self.logger.error(f"Failed to create project '{project_name}'")
-            return None
+            # This is a PAT but still failing
+            self.logger.error(f"Using {token_type} but project creation still failed")
+            self.logger.error("Possible issues:")
+            self.logger.error("1. Missing 'project' scope in Personal Access Token")
+            self.logger.error("2. User/Organization doesn't have Projects v2 enabled") 
+            self.logger.error("3. Token doesn't have permission to create projects for this owner")
+            
+        return None
 
     def create_project_field(self, project_id: str, field_name: str, field_type: str = 'SINGLE_SELECT',
                            options: List[str] = None) -> Optional[str]:
@@ -492,9 +633,13 @@ class ProjectMixin:
                     singleSelectOptions: $options
                   }) {
                     projectV2Field {
-                      id
-                      name
+                      ... on ProjectV2Field {
+                        id
+                        name
+                      }
                       ... on ProjectV2SingleSelectField {
+                        id
+                        name
                         options {
                           id
                           name
@@ -512,7 +657,14 @@ class ProjectMixin:
             }
 
             if field_type == 'SINGLE_SELECT' and options:
-                variables["options"] = [{"name": option} for option in options]
+                variables["options"] = [
+                    {
+                        "name": option,
+                        "color": "GRAY",  # Default color
+                        "description": f"{option} category"  # Default description
+                    } 
+                    for option in options
+                ]
 
             result = self._execute_with_retry(mutation, variables)
 
@@ -529,3 +681,128 @@ class ProjectMixin:
         except Exception as e:
             self.logger.error(f"Failed to create project field '{field_name}': {e}")
             return None
+
+    def get_project_items(self, project_id: str, first: int = 100) -> List[Dict[str, Any]]:
+        """Get project items by project ID.
+
+        Args:
+            project_id: Project ID
+            first: Maximum items to fetch
+
+        Returns:
+            List of project items
+        """
+        query = gql("""
+            query GetProjectItems($projectId: ID!, $first: Int!) {
+              node(id: $projectId) {
+                ... on ProjectV2 {
+                  items(first: $first) {
+                    nodes {
+                      id
+                      content {
+                        ... on Issue {
+                          id
+                          number
+                          title
+                          state
+                          labels(first: 10) {
+                            nodes {
+                              name
+                            }
+                          }
+                        }
+                      }
+                      fieldValues(first: 10) {
+                        nodes {
+                          ... on ProjectV2ItemFieldTextValue {
+                            field {
+                              ... on ProjectV2Field {
+                                name
+                              }
+                            }
+                            text
+                          }
+                          ... on ProjectV2ItemFieldSingleSelectValue {
+                            field {
+                              ... on ProjectV2SingleSelectField {
+                                name
+                              }
+                            }
+                            optionId
+                            name
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+        """)
+
+        variables = {
+            "projectId": project_id,
+            "first": first
+        }
+
+        result = self._execute_with_retry(query, variables)
+        if result and 'node' in result and result['node']:
+            return result['node'].get('items', {}).get('nodes', [])
+        return []
+
+    def get_project_fields(self, project_id: str) -> List[Dict[str, Any]]:
+        """Get project fields by project ID.
+
+        Args:
+            project_id: Project ID
+
+        Returns:
+            List of project fields
+        """
+        query = gql("""
+            query GetProjectFields($projectId: ID!) {
+              node(id: $projectId) {
+                ... on ProjectV2 {
+                  fields(first: 20) {
+                    nodes {
+                      ... on ProjectV2Field {
+                        id
+                        name
+                        dataType
+                      }
+                      ... on ProjectV2SingleSelectField {
+                        id
+                        name
+                        dataType
+                        options {
+                          id
+                          name
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+        """)
+
+        variables = {
+            "projectId": project_id
+        }
+
+        result = self._execute_with_retry(query, variables)
+        if result and 'node' in result and result['node']:
+            return result['node'].get('fields', {}).get('nodes', [])
+        return []
+
+    def create_project_item(self, project_id: str, content_id: str) -> Dict[str, Any]:
+        """Create project item (alias for add_item_to_board).
+
+        Args:
+            project_id: Project ID
+            content_id: Issue node ID
+
+        Returns:
+            Mutation result
+        """
+        return self.add_item_to_board(project_id, content_id)

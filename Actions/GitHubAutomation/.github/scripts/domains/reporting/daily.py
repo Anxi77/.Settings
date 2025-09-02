@@ -316,31 +316,58 @@ class DailyReporter:
             if not in_todo_section:
                 continue
 
-            # Parse category headers
+            # Parse category headers (supports both old @ format and new format without @)
             if line.startswith('@'):
                 current_category = line[1:].strip()
                 continue
+            # Check for category headers in new format (just the category name)
+            # Look for lines that are neither checkboxes nor section headers
+            elif not line.startswith('- [') and not line.startswith('#') and not line.startswith('<') and line:
+                # This might be a category header in the new format
+                # Categories are typically single words or short phrases
+                if len(line.split()) <= 3 and not any(c in line for c in [':', '(', ')', '[', ']']):
+                    current_category = line.strip()
+                    continue
 
             # Parse todo items
             if line.startswith('- ['):
-                completed = line[3] == 'x'
-                task = line[6:].strip()
+                # Check if it's completed
+                if line.startswith('- [x]'):
+                    completed = True
+                    remaining = line[6:].strip()
+                elif line.startswith('- []'):
+                    completed = False
+                    remaining = line[5:].strip()
+                elif line.startswith('- [ ]'):
+                    # Old format with space
+                    completed = False
+                    remaining = line[6:].strip()
+                else:
+                    continue
 
-                # Extract issue reference if present
+                # Extract issue reference and task
                 issue_ref = None
                 issue_number = None
+                task = remaining
 
-                # Look for issue reference in format "(#123)" at the end
                 import re
-                issue_match = re.search(r'\(#(\d+)\)\s*$', task)
-                if issue_match:
-                    issue_number = int(issue_match.group(1))
-                    issue_ref = f"#{issue_number}"
-                    # Remove issue reference from task text
-                    task = re.sub(r'\s*\(#\d+\)\s*$', '', task).strip()
-                elif task.startswith('#'):
-                    # Legacy format: task starting with #
-                    issue_ref = task.split()[0]
+                # Check for new format: just "#123"
+                if remaining.startswith('#'):
+                    issue_match = re.match(r'^#(\d+)(?:\s+(.+))?$', remaining)
+                    if issue_match:
+                        issue_number = int(issue_match.group(1))
+                        issue_ref = f"#{issue_number}"
+                        # If there's text after the issue number, use it as task
+                        task = issue_match.group(2) or f"Task #{issue_number}"
+                # Check for old format: "Task description (#123)" or "Task description ([#123](url))"
+                else:
+                    # Look for issue reference in format "(#123)" at the end
+                    issue_match = re.search(r'\(#(\d+)\)', remaining)
+                    if issue_match:
+                        issue_number = int(issue_match.group(1))
+                        issue_ref = f"#{issue_number}"
+                        # Remove issue reference from task text
+                        task = re.sub(r'\s*\(\[?#\d+\]?(?:\([^)]+\))?\)\s*$', '', remaining).strip()
 
                 todos.append(TodoItem(
                     category=current_category,
@@ -351,6 +378,42 @@ class DailyReporter:
                 ))
 
         return todos
+
+    def _check_todo_exists_as_issue(self, repo_owner: str, repo_name: str, category: str, task: str) -> bool:
+        """Check if a TODO already exists as a GitHub issue.
+
+        Args:
+            repo_owner: Repository owner
+            repo_name: Repository name
+            category: TODO category
+            task: Task description
+
+        Returns:
+            True if the TODO already exists as an issue
+        """
+        try:
+            # Get all open issues with 'todo-item' label
+            issues = self.api.get_issues(
+                repo_owner,
+                repo_name,
+                state='OPEN',
+                labels=['todo-item']
+            )
+
+            # Generate expected title for comparison (same logic as TodoIssueManager)
+            todo_issue_prefix = self.config.get('todo_issue_manager', {}).get('todo_issue_prefix', '📋')
+            expected_title = f"{todo_issue_prefix} [{category}] {task}"
+
+            # Search for exact title match
+            for issue in issues:
+                if issue.get('title', '').strip() == expected_title.strip():
+                    return True
+
+            return False
+
+        except Exception as e:
+            self.logger.error(f"Error checking if TODO exists as issue: {e}")
+            return False  # If we can't check, assume it doesn't exist to avoid skipping
 
     def _process_commit_todos(self, branch_summaries: List[BranchSummary],
                             existing_todos: List[TodoItem],
@@ -378,16 +441,21 @@ class DailyReporter:
         for summary in branch_summaries:
             for commit in summary.commits:
                 for category, task in commit.todos:
-                    # Check if todo already exists
-                    exists = any(
+                    # Check if todo already exists in DSR
+                    exists_in_dsr = any(
                         todo.category == category and todo.task == task
                         for todo in all_todos
                     )
 
-                    if not exists:
+                    # Also check if todo already exists as a GitHub issue
+                    exists_as_issue = self._check_todo_exists_as_issue(repo_owner, repo_name, category, task)
+
+                    if not exists_in_dsr and not exists_as_issue:
                         new_todos.append((category, task))
                         # Store commit author for issue assignment
                         commit_authors[(category, task)] = getattr(commit, 'author', None)
+                    elif exists_as_issue:
+                        self.logger.info(f"⏭️ Skipping TODO '{task}' - already exists as GitHub issue")
 
         if new_todos:
             self.logger.info(f"Creating individual issues for {len(new_todos)} new TODO items")
@@ -659,7 +727,7 @@ class DailyReporter:
 
             lines.extend([
                 f"<details>",
-                f"<summary><strong>@{category}</strong> ({completed_count}/{item_count} completed)</summary>",
+                f"<summary><strong>{category}</strong> ({completed_count}/{item_count} completed)</summary>",
                 ""
             ])
 
@@ -667,11 +735,11 @@ class DailyReporter:
                 checkbox = "[x]" if todo.completed else "[ ]"
 
                 # Add issue link if available
-                task_line = f"- {checkbox} {todo.task}"
                 if todo.issue_number:
-                    task_line += f" ([#{todo.issue_number}](https://github.com/{repo_owner}/{repo_name}/issues/{todo.issue_number}))"
-                elif todo.issue_ref:
-                    task_line += f" ({todo.issue_ref})"
+                    task_line = f"- {checkbox} #{todo.issue_number}"
+                else:
+                    # Fallback to just task text if no issue number
+                    task_line = f"- {checkbox} {todo.task}"
 
                 lines.append(task_line)
 

@@ -49,11 +49,6 @@ class BoardSync:
             True if project initialization was successful
         """
         try:
-            project_config = self.config.get('project_sync', {})
-            if not project_config.get('enabled', False):
-                self.logger.info("Project board sync is disabled in configuration")
-                return False
-
             # Try to get or create project by repository name
             project_name = self.repo_name
             self.logger.info(f"Looking for project '{project_name}' in {self.repo_owner}")

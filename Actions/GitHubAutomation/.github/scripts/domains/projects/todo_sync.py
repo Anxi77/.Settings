@@ -9,7 +9,7 @@ from .field_manager import ProjectFieldManager
 class TodoSync:
     """Handles synchronization of TODO issues with project boards."""
 
-    def __init__(self, api_client, config: Dict[str, Any], project_id: str, project_owner: str):
+    def __init__(self, api_client, config: Dict[str, Any], project_id: str, project_owner: str, project_number: int):
         """Initialize TODO synchronizer.
 
         Args:
@@ -17,11 +17,13 @@ class TodoSync:
             config: Configuration dictionary
             project_id: GitHub project ID
             project_owner: Project owner
+            project_number: GitHub project number
         """
         self.api = api_client
         self.config = config
         self.project_id = project_id
         self.project_owner = project_owner
+        self.project_number = project_number
         self.logger = logging.getLogger(__name__)
         self.field_manager = ProjectFieldManager(api_client, project_id, project_owner)
 
@@ -58,7 +60,7 @@ class TodoSync:
                 try:
                     if self._sync_todo_issue_to_project(issue, repo_owner, repo_name):
                         synced_count += 1
-                        self.logger.info(f"Synced issue #{issue['number']} to project board")
+                        # Detailed logging is done within _sync_todo_issue_to_project method
                     else:
                         failed_count += 1
                         self.logger.warning(f"Failed to sync issue #{issue['number']} to project board")
@@ -70,7 +72,7 @@ class TodoSync:
                     failed_count += 1
                     self.logger.error(f"Error syncing issue #{issue['number']}: {e}")
 
-            self.logger.info(f"TODO sync completed: {synced_count} synced, {failed_count} failed")
+            self.logger.info(f"TODO sync completed: {synced_count} processed (new + existing), {failed_count} failed")
             return failed_count == 0
 
         except Exception as e:
@@ -118,15 +120,11 @@ class TodoSync:
 
             # Check if issue is already in project
             if self._is_todo_issue_in_project(issue_number):
-                self.logger.debug(f"Issue #{issue_number} already in project board")
+                self.logger.info(f"⏭️ Issue #{issue_number} already exists in project board - skipping")
                 return True
 
-            # Extract category from labels
+            # Extract category from labels (for TaskItem only, not used for project fields)
             category = self._extract_category_from_issue(issue)
-
-            # Ensure category field exists
-            if category:
-                self.field_manager.ensure_category_field_exists(category)
 
             # Determine priority from labels
             priority = self._extract_priority_from_issue(issue)
@@ -145,7 +143,7 @@ class TodoSync:
             success = self._create_project_item(project_data, task_item)
 
             if success:
-                self.logger.info(f"Added TODO issue #{issue_number} to project board with category '{category or 'None'}'")
+                self.logger.info(f"✅ Added new TODO issue #{issue_number} to project board with status 'Todo'")
 
             return success
 
@@ -248,17 +246,30 @@ class TodoSync:
 
             # Update any additional fields if needed
             item_id = created_item.get('id')
-            if item_id and task_item.category:
-                # Set category field if it exists
+            if item_id:
+                # Set status field to "Todo"
                 try:
-                    self.api.update_project_item_field(
-                        project_id=self.project_id,
-                        item_id=item_id,
-                        field_name="Category",
-                        field_value=task_item.category
+                    status_field_id = self.api.get_field_id_by_name(
+                        self.project_owner, self.project_number, "Status"
                     )
+                    if status_field_id:
+                        status_option_id = self.api.get_select_option_id(
+                            self.project_owner, self.project_number, "Status", "Todo"
+                        )
+                        if status_option_id:
+                            self.api.update_item_field(
+                                self.project_id, item_id, status_field_id, {"singleSelectOptionId": status_option_id}
+                            )
+                            self.logger.debug(f"Set status to 'Todo' for item {item_id}")
+                        else:
+                            self.logger.warning(f"Could not find 'Todo' option in Status field")
+                    else:
+                        self.logger.warning(f"Could not find Status field in project")
                 except Exception as e:
-                    self.logger.warning(f"Failed to set category for project item: {e}")
+                    self.logger.warning(f"Failed to set status for item {item_id}: {e}")
+
+                # Note: Category field setting removed due to API complexity
+                # Project items will only have Status set to "Todo"
 
             return True
 
@@ -299,7 +310,7 @@ def run_todo_sync(api_client, config: Dict[str, Any], repo_owner: str, repo_name
             return False
 
         # Initialize and run TODO sync
-        todo_sync = TodoSync(api_client, config, project_id, repo_owner)
+        todo_sync = TodoSync(api_client, config, project_id, repo_owner, project_number)
         return todo_sync.sync_todo_issues(repo_owner, repo_name)
 
     except Exception as e:

@@ -106,7 +106,6 @@ class DailyReporter:
         # Initialize board sync for this repository
         if not self.board_sync:
             self.board_sync = BoardSync(self.api, self.config.get('project_sync', {}), repo_owner, repo_name)
-            self.board_sync.initialize_project()
 
         # Process new todos from commits (create individual issues)
         all_todos = self._process_commit_todos(
@@ -157,12 +156,48 @@ class DailyReporter:
         start_of_day = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
         end_of_day = target_date.replace(hour=23, minute=59, second=59, microsecond=999999)
 
+        # Get commits from main branch
         commits = self.api.get_commits(
             repo_owner,
             repo_name,
             since=start_of_day.isoformat(),
-            until=end_of_day.isoformat()
+            until=end_of_day.isoformat(),
+            branch="main"
         )
+
+        # Also get commits from current push branch if different from main
+        import os
+        current_branch = None
+        if os.getenv('GITHUB_ACTIONS') and os.getenv('GITHUB_REF'):
+            github_ref = os.getenv('GITHUB_REF', '')
+            if github_ref.startswith('refs/heads/'):
+                current_branch = github_ref.replace('refs/heads/', '')
+                
+        if current_branch and current_branch != 'main':
+            try:
+                branch_commits = self.api.get_commits(
+                    repo_owner,
+                    repo_name,
+                    since=start_of_day.isoformat(),
+                    until=end_of_day.isoformat(),
+                    branch=current_branch
+                )
+                # Mark these commits with branch info
+                for commit in branch_commits:
+                    commit['_source_branch'] = current_branch
+                commits.extend(branch_commits)
+                self.logger.info(f"Added {len(branch_commits)} commits from branch '{current_branch}'")
+            except Exception as e:
+                self.logger.warning(f"Failed to get commits from branch '{current_branch}': {e}")
+
+        # Add current push event commit as fallback (GitHub Actions context)
+        current_push_commit = self._get_current_push_commit(repo_owner, repo_name, target_date)
+        if current_push_commit:
+            # Check if this commit is already included
+            existing_shas = {commit.get('oid') for commit in commits}
+            if current_push_commit.get('oid') not in existing_shas:
+                commits.append(current_push_commit)
+                self.logger.info("Added current push commit as fallback")
 
         # Group commits by branch
         branch_commits = {}
@@ -194,8 +229,8 @@ class DailyReporter:
                 if commit_data.type in excluded_types:
                     continue
 
-                # Group by branch (simplified - in real scenario would need API calls)
-                branch_name = 'main'  # Default branch
+                # Group by branch - use source branch, current push branch, or default to main
+                branch_name = commit.get('_source_branch') or commit.get('_current_push_branch', 'main')
 
                 if branch_name not in branch_commits:
                     branch_commits[branch_name] = []
@@ -599,7 +634,7 @@ class DailyReporter:
         commit_count = len(commits)
         lines = [
             f"<details>",
-            f"<summary><h3 style=\"display: inline;\">✨ Author_{author}</h3></summary>",
+            f"<summary><h3 style=\"display: inline;\">✨ Author - {author}</h3></summary>",
             ""
         ]
 
@@ -627,7 +662,14 @@ class DailyReporter:
             if commit.body:
                 for body_line in commit.body:
                     if body_line.strip():
-                        lines.append(f"> • {body_line.strip()}")
+                        # Check if line already starts with bullet point or dash
+                        stripped_line = body_line.strip()
+                        if stripped_line.startswith(('-', '•', '*')):
+                            # Already has bullet point, just add blockquote prefix
+                            lines.append(f"> {stripped_line}")
+                        else:
+                            # Add bullet point
+                            lines.append(f"> • {stripped_line}")
                 lines.append(">")
             else:
                 lines.extend(["> No additional details provided.", ">"])
@@ -811,4 +853,66 @@ class DailyReporter:
                 self.logger.warning(f"Failed to get or create DSR label: {label_name}")
 
         return label_ids
+
+    def _get_current_push_commit(self, repo_owner: str, repo_name: str, target_date: datetime) -> Optional[Dict[str, Any]]:
+        """Get current push event commit from GitHub Actions context.
+
+        Args:
+            repo_owner: Repository owner
+            repo_name: Repository name
+            target_date: Target date for filtering
+
+        Returns:
+            Current push commit data if available and within target date
+        """
+        import os
+        
+        # Check if running in GitHub Actions
+        if not os.getenv('GITHUB_ACTIONS'):
+            return None
+
+        # Get GitHub Actions environment variables
+        github_sha = os.getenv('GITHUB_SHA')
+        github_ref = os.getenv('GITHUB_REF', '')
+        github_event_name = os.getenv('GITHUB_EVENT_NAME', '')
+        
+        # Only process push events
+        if github_event_name != 'push' or not github_sha:
+            return None
+
+        try:
+            # Get commit details using GitHub API
+            commit_data = self.api.get_commit(repo_owner, repo_name, github_sha)
+            if not commit_data:
+                return None
+
+            # Check if commit is from target date
+            commit_timestamp = commit_data.get('committedDate')
+            if commit_timestamp:
+                commit_dt = datetime.fromisoformat(commit_timestamp.replace('Z', '+00:00'))
+                target_start = target_date.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=commit_dt.tzinfo)
+                target_end = target_date.replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=commit_dt.tzinfo)
+                
+                if not (target_start <= commit_dt <= target_end):
+                    return None
+
+            # Format commit data to match expected structure
+            formatted_commit = {
+                'oid': commit_data.get('oid', github_sha),
+                'message': commit_data.get('message', ''),
+                'committedDate': commit_data.get('committedDate'),
+                'authoredDate': commit_data.get('authoredDate') or commit_data.get('committedDate'),
+                'author': commit_data.get('author', {})
+            }
+
+            # Extract branch name from ref
+            branch_name = github_ref.replace('refs/heads/', '') if github_ref.startswith('refs/heads/') else 'unknown'
+            formatted_commit['_current_push_branch'] = branch_name
+
+            self.logger.info(f"Including current push commit {github_sha[:7]} from branch '{branch_name}'")
+            return formatted_commit
+
+        except Exception as e:
+            self.logger.warning(f"Failed to get current push commit: {e}")
+            return None
 

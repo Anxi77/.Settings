@@ -40,7 +40,7 @@ class BoardSync:
         # Try to initialize project
         if self.initialize_project():
             self.field_manager = ProjectFieldManager(api_client, self.project_id, repo_owner)
-            self.todo_sync = TodoSync(api_client, config, self.project_id, repo_owner)
+            self.todo_sync = TodoSync(api_client, config, self.project_id, repo_owner, self.project_number)
 
     def initialize_project(self) -> bool:
         """Initialize project connection.
@@ -54,25 +54,24 @@ class BoardSync:
                 self.logger.info("Project board sync is disabled in configuration")
                 return False
 
-            # Get project number from config
-            self.project_number = project_config.get('project_number')
-            if not self.project_number:
-                self.logger.error("No project number configured")
-                return False
-
-            # Get project information
-            project_info = self.api.get_project_by_number(self.repo_owner, self.project_number)
+            # Try to get or create project by repository name
+            project_name = self.repo_name
+            self.logger.info(f"Looking for project '{project_name}' in {self.repo_owner}")
+            
+            project_info = self.api.get_or_create_project_by_name(self.repo_owner, project_name)
             if not project_info:
-                self.logger.error(f"Project #{self.project_number} not found")
+                self.logger.error(f"Failed to get or create project '{project_name}'")
                 return False
 
             self.project_id = project_info.get('id')
-            if not self.project_id:
-                self.logger.error("Could not get project ID")
+            self.project_number = project_info.get('number')
+            
+            if not self.project_id or not self.project_number:
+                self.logger.error("Could not get project ID or number")
                 return False
 
             self.project_enabled = True
-            self.logger.info(f"Initialized project board connection (#{self.project_number})")
+            self.logger.info(f"Initialized project board connection: '{project_name}' (#{self.project_number})")
             return True
 
         except Exception as e:
@@ -141,7 +140,7 @@ class BoardSync:
 
     def update_task_status(self, repo_owner: str, repo_name: str, issue_number: int,
                           new_status: TaskStatus) -> bool:
-        """Update task status for an issue.
+        """Update task status for an issue (GitHub handles project item sync automatically).
 
         Args:
             repo_owner: Repository owner
@@ -163,17 +162,13 @@ class BoardSync:
                 self.logger.error(f"Issue #{issue_number} not found")
                 return False
 
-            # Update issue labels to reflect new status
-            self._update_issue_labels(repo_owner, repo_name, issue, new_status)
-
-            # Update project item status if it exists in the project
-            self._update_project_item_status(issue, new_status)
-
-            self.logger.info(f"Updated task status for issue #{issue_number} to {new_status.value}")
+            # Note: GitHub automatically syncs project item status when issue state changes
+            # Manual status updates should be done through GitHub UI or direct issue state changes
+            self.logger.info(f"Issue #{issue_number} found - GitHub will auto-sync project item status")
             return True
 
         except Exception as e:
-            self.logger.error(f"Failed to update task status: {e}")
+            self.logger.error(f"Failed to validate issue: {e}")
             return False
 
     def get_project_statistics(self, repo_owner: str, repo_name: str) -> Dict[str, Any]:
@@ -271,7 +266,7 @@ class BoardSync:
         }
 
     def _update_project_item(self, task_item: TaskItem) -> bool:
-        """Update existing project item.
+        """Update existing project item (custom fields only - Status is auto-managed by GitHub).
 
         Args:
             task_item: Task item to update
@@ -284,13 +279,19 @@ class BoardSync:
             if not item_id:
                 return False
 
-            # Update status field
-            success = self.api.update_project_item_field(
-                project_id=self.project_id,
-                item_id=item_id,
-                field_name="Status",
-                field_value=task_item.status.value
-            )
+            # Only update custom fields (Category, Priority)
+            # Status is automatically managed by GitHub when issue state changes
+            success = True
+            
+            if task_item.category and self.field_manager:
+                self.field_manager.ensure_category_field_exists(task_item.category)
+                field_success = self.api.update_project_item_field(
+                    project_id=self.project_id,
+                    item_id=item_id,
+                    field_name="Category",
+                    field_value=task_item.category
+                )
+                success = success and field_success
 
             return success
 
@@ -299,7 +300,7 @@ class BoardSync:
             return False
 
     def _create_project_item(self, task_item: TaskItem) -> bool:
-        """Create new project item.
+        """Create new project item (Status auto-managed by GitHub).
 
         Args:
             task_item: Task item to create
@@ -308,7 +309,7 @@ class BoardSync:
             True if creation was successful
         """
         try:
-            # Create the project item
+            # Create the project item (GitHub will auto-set Status based on issue state)
             created_item = self.api.create_project_item(
                 project_id=self.project_id,
                 content_id=task_item.issue['id']
@@ -317,26 +318,16 @@ class BoardSync:
             if not created_item:
                 return False
 
-            # Set initial field values
+            # Set only custom fields (GitHub auto-manages Status field)
             item_id = created_item.get('id')
-            if item_id:
-                # Set status
+            if item_id and task_item.category and self.field_manager:
+                self.field_manager.ensure_category_field_exists(task_item.category)
                 self.api.update_project_item_field(
                     project_id=self.project_id,
                     item_id=item_id,
-                    field_name="Status",
-                    field_value=task_item.status.value
+                    field_name="Category",
+                    field_value=task_item.category
                 )
-
-                # Set category if available
-                if task_item.category and self.field_manager:
-                    self.field_manager.ensure_category_field_exists(task_item.category)
-                    self.api.update_project_item_field(
-                        project_id=self.project_id,
-                        item_id=item_id,
-                        field_name="Category",
-                        field_value=task_item.category
-                    )
 
             return True
 
@@ -344,61 +335,9 @@ class BoardSync:
             self.logger.error(f"Failed to create project item: {e}")
             return False
 
-    def _update_issue_labels(self, repo_owner: str, repo_name: str, issue: Dict[str, Any], new_status: TaskStatus):
-        """Update issue labels to reflect new status.
+    # Removed: _update_issue_labels() - Labels managed manually, project status auto-synced by GitHub
 
-        Args:
-            repo_owner: Repository owner
-            repo_name: Repository name
-            issue: Issue data
-            new_status: New task status
-        """
-        try:
-            # Get current labels
-            current_labels = issue.get('labels', [])
-            label_names = [label.get('name', '') for label in current_labels if label.get('name')]
-
-            # Remove existing status labels
-            status_labels = ['status:todo', 'status:in-progress', 'status:in-review', 'status:done']
-            new_labels = [label for label in label_names if label.lower() not in status_labels]
-
-            # Add new status label
-            new_status_label = f"status:{new_status.value.lower().replace(' ', '-')}"
-            new_labels.append(new_status_label)
-
-            # Update issue labels
-            self.api.update_issue_labels(repo_owner, repo_name, issue['number'], new_labels)
-
-        except Exception as e:
-            self.logger.error(f"Failed to update issue labels: {e}")
-
-    def _update_project_item_status(self, issue: Dict[str, Any], new_status: TaskStatus):
-        """Update project item status if it exists.
-
-        Args:
-            issue: Issue data
-            new_status: New task status
-        """
-        try:
-            # Find project item for this issue
-            project_items = self.api.get_project_items(self.project_id)
-
-            for item in project_items:
-                content = item.get('content', {})
-                if content.get('number') == issue.get('number'):
-                    # Update status field
-                    item_id = item.get('id')
-                    if item_id:
-                        self.api.update_project_item_field(
-                            project_id=self.project_id,
-                            item_id=item_id,
-                            field_name="Status",
-                            field_value=new_status.value
-                        )
-                    break
-
-        except Exception as e:
-            self.logger.error(f"Failed to update project item status: {e}")
+    # Removed: _update_project_item_status() - GitHub automatically syncs project item status with issue state
 
     def _update_project_metrics(self, task_items: List[TaskItem]):
         """Update project metrics.

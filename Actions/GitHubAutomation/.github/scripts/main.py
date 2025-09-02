@@ -79,16 +79,40 @@ class GitHubAutomation:
                 self.logger.error(f"Missing required environment variables: {', '.join(missing_vars)}")
                 return False
 
-            # Get GitHub token
+            # Get GitHub token with PAT priority
+            pat_token = os.environ.get('PAT')
             github_token = os.environ.get('GITHUB_TOKEN')
+            
+            # Determine which token to use and log it
+            if pat_token:
+                actual_token = pat_token
+                token_type = "PAT (Personal Access Token)"
+                self.logger.info(f"🔑 Using PAT token (starts with: {pat_token[:8]}...)")
+            elif github_token:
+                actual_token = github_token
+                token_type = "GITHUB_TOKEN (Actions default)"
+                self.logger.info(f"🔑 Using GITHUB_TOKEN (starts with: {github_token[:8]}...)")
+            else:
+                self.logger.error("❌ No GitHub token found (neither PAT nor GITHUB_TOKEN)")
+                return False
 
             # Initialize GitHub client
             github_config = self.config.get('github', {})
             self.api_client = APIClient(
-                token=github_token,
+                token=actual_token,
                 max_retries=github_config.get('max_retries', 3),
                 base_delay=github_config.get('base_delay', 1.0)
             )
+            
+            self.logger.info(f"📡 GitHub API client initialized with {token_type}")
+            
+            # Test API access
+            try:
+                rate_limit = self.api_client.get_rate_limit()
+                remaining = rate_limit.get('remaining', 'unknown')
+                self.logger.info(f"✅ API connection successful - Rate limit remaining: {remaining}")
+            except Exception as e:
+                self.logger.warning(f"⚠️ API connection test failed: {e}")
 
             # Get repository info
             repo_name = os.environ.get('GITHUB_REPOSITORY')

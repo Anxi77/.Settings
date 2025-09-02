@@ -89,7 +89,8 @@ class TodoIssueManager:
 
                 if issue_info:
                     created_issues.append(issue_info)
-                    self.logger.info(f"Created TODO issue #{issue_info.issue_number}: {task[:50]}...")
+                    # Note: issue_info could be either newly created or existing issue
+                    self.logger.info(f"Processed TODO issue #{issue_info.issue_number}: {task[:50]}...")
 
             except Exception as e:
                 self.logger.error(f"Failed to create TODO issue for '{task}': {e}")
@@ -97,6 +98,41 @@ class TodoIssueManager:
 
         self.logger.info(f"Successfully created {len(created_issues)} TODO issues")
         return created_issues
+
+    def _find_existing_todo_issue(self, repo_owner: str, repo_name: str, category: str, task: str) -> Optional[Dict[str, Any]]:
+        """Find existing TODO issue with the same task content.
+
+        Args:
+            repo_owner: Repository owner
+            repo_name: Repository name
+            category: TODO category
+            task: Task description
+
+        Returns:
+            Existing issue data or None if not found
+        """
+        try:
+            # Get all open issues with 'todo-item' label
+            issues = self.api.get_issues(
+                repo_owner,
+                repo_name,
+                state='OPEN',
+                labels=['todo-item']
+            )
+
+            # Generate expected title for comparison
+            expected_title = self._generate_issue_title(category, task)
+
+            # Search for exact title match
+            for issue in issues:
+                if issue.get('title', '').strip() == expected_title.strip():
+                    return issue
+
+            return None
+
+        except Exception as e:
+            self.logger.error(f"Error finding existing TODO issue: {e}")
+            return None
 
     def _create_single_todo_issue(
         self,
@@ -114,6 +150,18 @@ class TodoIssueManager:
         Returns:
             TodoIssueInfo if successful, None otherwise
         """
+        # Check if a TODO issue with the same task already exists
+        existing_issue = self._find_existing_todo_issue(repo_owner, repo_name, category, task)
+        if existing_issue:
+            self.logger.info(f"🔄 Reusing existing TODO issue #{existing_issue['number']}: {task[:50]}...")
+            return TodoIssueInfo(
+                issue_id=existing_issue.get('id', ''),
+                issue_number=existing_issue.get('number', 0),
+                issue_url=existing_issue.get('url', ''),
+                category=category,
+                task=task
+            )
+
         # Generate issue title
         title = self._generate_issue_title(category, task)
 
@@ -143,6 +191,9 @@ class TodoIssueManager:
         if not created_issue:
             return None
 
+        # Log successful creation of new issue
+        self.logger.info(f"✅ Created new TODO issue #{created_issue.get('number', 0)}: {task[:50]}...")
+
         return TodoIssueInfo(
             issue_id=created_issue.get('id', ''),
             issue_number=created_issue.get('number', 0),
@@ -169,7 +220,7 @@ class TodoIssueManager:
         # Limit task length for title
         task_title = task[:80] + "..." if len(task) > 80 else task
 
-        return f"{self.todo_issue_prefix} {category_emoji} [{category}] {task_title}"
+        return f"{self.todo_issue_prefix} [{category}] {task_title}"
 
     def _generate_issue_body(
         self,
@@ -542,21 +593,34 @@ class TodoIssueManager:
         updated_lines = []
 
         for line in lines:
-            # Look for checkbox lines that might have issue links
-            if line.strip().startswith('- [') and '(#' in line:
-                # Extract issue number from line like "- [ ] Task description (#123)"
+            # Look for checkbox lines with issue links in new format: "- [] #123"
+            if line.strip().startswith('- ['):
                 import re
-                issue_match = re.search(r'\(#(\d+)\)', line)
-                if issue_match:
-                    issue_number = int(issue_match.group(1))
+                # Check for new format: "- [] #123" or "- [x] #123"
+                new_format_match = re.match(r'^(\s*- \[)(x?)\] #(\d+)', line)
+                if new_format_match:
+                    issue_number = int(new_format_match.group(3))
                     if issue_number in status_map:
                         # Update checkbox based on issue status
                         if status_map[issue_number] == 'closed':
                             # Mark as completed
-                            line = re.sub(r'- \[ \]', '- [x]', line)
+                            line = re.sub(r'- \[\]', '- [x]', line)
                         else:
                             # Mark as incomplete
-                            line = re.sub(r'- \[x\]', '- [ ]', line)
+                            line = re.sub(r'- \[x\]', '- []', line)
+                # Also support old format for backward compatibility: "- [ ] Task (#123)"
+                elif '(#' in line:
+                    issue_match = re.search(r'\(#(\d+)\)', line)
+                    if issue_match:
+                        issue_number = int(issue_match.group(1))
+                        if issue_number in status_map:
+                            # Update checkbox based on issue status
+                            if status_map[issue_number] == 'closed':
+                                # Mark as completed
+                                line = re.sub(r'- \[ \]', '- [x]', line)
+                            else:
+                                # Mark as incomplete
+                                line = re.sub(r'- \[x\]', '- [ ]', line)
 
             updated_lines.append(line)
 
